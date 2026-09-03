@@ -98,6 +98,7 @@ Project-specific knowledge lives in `documentation/` — read the relevant file 
 - `documentation/DATA_GAP_ANALYSIS.md` — missing information and candidate sources
 - `documentation/TRUST_REPORT.md` — current trust status and blocking issues
 - `documentation/ROADMAP.md` — living P0–P3 plan with kill criteria, decision points, and change log
+- `documentation/IDEAS.md` — the domain expert's ideas ledger: hunches in plain language, their data-terms translation, and status
 - `documentation/PROMOTION_PROPOSALS.md` — candidate lessons proposed for the central methodology (never auto-applied)
 
 Rules:
@@ -105,14 +106,16 @@ Rules:
 - Project facts stay in this repository; never edit the central skill from project work.
 - Do not optimize models before checking target, data, point-in-time correctness, leakage, baselines, and validation.
 - Preserve validated historical findings unless new evidence contradicts them; when evidence conflicts, investigate and label the status.
-- A meaningful analytical change is complete only when implementation, validation, reproducibility, and the relevant documentation are updated.
+- A meaningful analytical change is complete only when implementation, validation, reproducibility, and the relevant documentation are updated — including refreshing the changed file's TL;DR line.
+- Lead substantive reports with a plain-language Bottom line per the communication preference below; technical detail follows.
 
 ## Project summary
 
-- **Objective**: Recommend legal defensive fielder positioning (7 fielders) for a given batter × pitcher × stadium × weather × game-state scenario, to maximize expected outs vs. the standard alignment. [INFERRED]
-- **Decision supported**: A coach/analyst chooses where to position fielders pre-pitch; the app surfaces top-N candidate alignments with a predicted out-conversion delta. [INFERRED]
+- **Objective**: Recommend legal defensive fielder positioning (7 fielders) for a given batter × pitcher × stadium × weather × game-state scenario, to maximize expected outs vs. the standard alignment. The intended claim is **out-conversion prediction**, not mere physical plausibility — numbers shown must be outcome-validated and calibrated. [VERIFIED — user, 2026-09-02]
+- **Decision supported**: The project is a **portfolio/demo piece**: the win is a credible, honest demo whose claims hold up to scrutiny. In-app framing: a coach/analyst chooses where to position fielders pre-pitch from top-N candidate alignments with a predicted out-conversion delta. [VERIFIED (purpose) — user, 2026-09-02; INFERRED (in-app framing)]
 - **Analytical unit**: One prediction = one scenario → an alignment (`{position: (x,y)}`). Underlying data grain: `pitch_appearance` = 1 row/pitch; `batter_spray_profile` = 1 row/(player, season, scenario, fielding_zone). [VERIFIED]
 - **Target**: None trained. The engine is a **deterministic heuristic**. Its coverage surface at the standard alignment has been outcome-evaluated and recalibrated (per-trajectory isotonic, offline artifact — not yet wired into the service); raw `predicted_hit_pct`/`predicted_oaa_delta` as shipped remain uncalibrated internal quantities. [VERIFIED — see `documentation/MODELING.md`]
 - **Prediction horizon / prediction-time constraints**: Live pre-pitch decision using the latest fielding profiles + recency-weighted all-season spray blend. Any retrospective backtest must control point-in-time (latest profiles and season-aggregate spray include future/outcome info). [INFERRED]
 - **Primary metric & success criterion**: Descriptive — log loss / Brier / AUC vs zone-lookup baselines (LOSO by season); calibrated surface beats both baselines with CI separation. Prescriptive — realized out-rate lift vs standard alignment (within-batter policy-value estimator). [VERIFIED — see `documentation/EXPERIMENTS.md`]
+- **Communication preference**: plain-first — lead with a plain-language bottom line; technical detail follows. [user, 2026-09-02]
 - **Current trust status**: CONDITIONALLY TRUSTED for the calibrated P(out | standard-alignment) surface and handedness-corrected positioning direction; the pull-based shift/no-shift *decision* heuristic is NOT validated as adding value over shifting broadly; fine x,y placement UNKNOWN (data gap). See `documentation/TRUST_REPORT.md`.

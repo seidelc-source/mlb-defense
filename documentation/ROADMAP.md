@@ -27,7 +27,7 @@ The descriptive question is answered: the engine's coverage surface, recalibrate
 ## P3 — someday / parked
 
 - Arm-strength / double-play modeling in the out conversion.
-- Weather-effect validation (carry/drift factors are hand-set, never outcome-checked).
+- Weather-effect validation (carry/drift factors are hand-set, never outcome-checked). *Note 2026-09-02: this is the component the domain expert trusts least (integration interview) — a candidate for promotion to P2 at the next /ds-plan revision, since hand-set factors move displayed P(out) under the confirmed "predicts out conversion" claim bar.*
 - FanGraphs xFIP/SIERA pull for `PitcherProfile` (fields reserved, NULL).
 - Calibrated uncertainty replacing the `0.30 + n/400` confidence heuristic.
 
@@ -39,6 +39,7 @@ The descriptive question is answered: the engine's coverage surface, recalibrate
 
 ## Change log (newest first)
 
+- 2026-09-02 (/ds-integrate reconcile + domain-expert interview) — Interview on record (user): purpose = **portfolio/demo piece** (win = claims hold up to scrutiny); intended claim = **"predicts out conversion"** (resolves the operating-contract UNKNOWN — full validation bar confirmed, P0 direction unchanged); least-trusted component = **weather carry/drift factors** (noted on the P3 weather item as a P2-promotion candidate); communication preference = plain-first. Also created `documentation/IDEAS.md` and refreshed the CLAUDE.md Principal DS section to the current template. No P0–P3 reordering.
 - 2026-09-02 (later, /ds-plan revision) — Added a leading P0 reproducibility item: verified in-code that no persisted calibrator exists (fit-and-discarded inside `scripts/eval_recalibrated.py`; service still returns raw `predicted_hit_pct`, `engine.py:512`), and found that the repo has zero git commits with all experiment artifacts in `/tmp` — reproducibility gates the other P0s on the priority stack. Calibrator-wiring acceptance criteria now note the artifact must be *created* (fit + persisted), not just loaded. No other structural changes; P1–P3, decision points, and graveyard unchanged.
 - 2026-09-02 — Initial roadmap at (re-)integration. Reflects state after P0 outcome eval, recalibration PASS, handedness fix, and P1 Parts 1–2: P0 = ship the calibrator + stop over-claiming the shift selection; P1 = selection signal, OAA range check, coordinate calibration; P2 gated on Gap 7 data.
 

@@ -7,7 +7,9 @@
 Given a plate-appearance scenario (batter, pitcher, stadium, weather, game state), recommend where to position the seven non-battery fielders to maximize expected outs relative to the standard alignment, subject to MLB 2023+ shift-legality rules and the park's outfield fence. The system also scores user-arranged alignments. [INFERRED from `services/alignment/engine.py`, `app_structure.md`]
 
 ## Decision / action supported
-A coach or analyst consuming the app's `POST /api/v1/alignments/recommend` output decides fielder placement pre-pitch. The UI shows top-N candidate alignments each with a `predicted_oaa_delta`, `predicted_hit_pct`, and a `confidence`. [INFERRED]
+A coach or analyst consuming the app's `POST /api/v1/alignments/recommend` output decides fielder placement pre-pitch. The UI shows top-N candidate alignments each with a `predicted_oaa_delta`, `predicted_hit_pct`, and a `confidence`. [INFERRED — in-app framing]
+
+**Project purpose (user, 2026-09-02)**: portfolio/demo piece — the user is the primary actor; a "win" is a credible, honest demo whose claims hold up to outside scrutiny. This raises, not lowers, the honesty bar on displayed numbers: over-claims are directly costly to the project's purpose. [VERIFIED — domain expert statement]
 
 ## Analytical unit
 - **Prediction unit**: one scenario → one alignment `{position: (x, y)}` on the normalized 0–1 field grid. [VERIFIED]
@@ -57,5 +59,7 @@ No formal policy. Live use is leakage-free by construction (present-time inputs)
 
 ## Open questions
 - What realized-outcome data could serve as ground truth (Statcast OAA by fielder/zone; hit-vs-out on batted balls given actual alignment)?
-- Is the app's intended claim "physically plausible suggestion" or "predicts out conversion"? This determines the required validation bar. [UNKNOWN]
 - Are the normalized coordinate transforms (spray ingest `hc_x/hc_y` → grid; 1 unit = 400 ft) calibrated against known field landmarks? [UNKNOWN]
+
+## Resolved questions
+- **Intended claim level** — RESOLVED 2026-09-02 (user): the app's intended claim is **"predicts out conversion"**, not merely "physically plausible suggestion". The full validation bar applies: displayed probabilities must be outcome-validated and calibrated, and unvalidated components (fine x,y placement, shift selection) must be labeled as such. [VERIFIED — domain expert decision]

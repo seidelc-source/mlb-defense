@@ -41,6 +41,7 @@
 ## `game_weather`
 
 - **Grain**: per-game (`game_id`), Open-Meteo. Wind decomposed into `wind_x_component`/`wind_y_component`. Users may override inline via `WeatherInput`. Wind direction is meteorological "from" degrees (180 = blowing out to CF). [VERIFIED — CLAUDE.md]
+- **Domain-reported distrust (user, 2026-09-02)**: of all data/model components, the user trusts the weather carry/drift factors least — they are hand-set and have never been outcome-checked. [ASSUMED as a severity signal; verification path: outcome-check `engine.carry_factor` against realized fly-ball carry by temperature/wind/altitude — tracked as the P3 weather-validation item in ROADMAP.md]
 
 ## `defensive_alignment` (history)
 
