@@ -98,16 +98,57 @@ def _weather_shift(
     return shift_x, shift_y
 
 
+def _shift2d(grid: np.ndarray, shift_x: int, shift_y: int) -> np.ndarray:
+    """Translate a grid with zero fill (mass pushed past an edge is dropped,
+    not wrapped — np.roll wrapped deep-fly mass back to home plate; red-team
+    finding D3, 2026-09-03)."""
+    if shift_x == 0 and shift_y == 0:
+        return grid
+    out = np.zeros_like(grid)
+    h, w = grid.shape
+    xs_src = slice(max(0, -shift_x), w - max(0, shift_x))
+    xs_dst = slice(max(0, shift_x), w - max(0, -shift_x))
+    ys_src = slice(max(0, -shift_y), h - max(0, shift_y))
+    ys_dst = slice(max(0, shift_y), h - max(0, -shift_y))
+    out[ys_dst, xs_dst] = grid[ys_src, xs_src]
+    return out
+
+
+def apply_weather_to_landing(
+    grid: np.ndarray,
+    weather: GameWeather | None,
+    trajectory: str | None,
+    altitude_ft: float,
+) -> np.ndarray:
+    """Weather-drift a (pre-normalized) landing-density grid; renormalizes so
+    dropped past-the-edge mass doesn't deflate the expectation."""
+    if weather is None:
+        return grid
+    shift_x, shift_y = _weather_shift(weather, trajectory, altitude_ft)
+    if shift_x == 0 and shift_y == 0:
+        return grid
+    shifted = _shift2d(grid, shift_x, shift_y)
+    total = shifted.sum()
+    return shifted / total if total > 0 else grid
+
+
 def build_hit_probability_grid(
     spray_zones: list[BatterSprayProfile],
     weather: GameWeather | None = None,
     trajectory: str | None = None,
     altitude_ft: float = 0.0,
+    density: str = "hit",
 ) -> np.ndarray:
     """
-    Return a (GRID×GRID) float32 array where each cell contains the
-    estimated probability that a batted ball lands in that field location
-    as a hit.
+    Return a (GRID×GRID) float32 array, normalized to sum to 1.
+
+    density="hit" (default) weights each zone by ``hit_pct * sample_n`` — the
+    batter's *hit-mass* distribution, used to position fielders where hits
+    concentrate. density="landing" weights by ``sample_n`` alone — the batter's
+    *batted-ball landing* distribution, used when aggregating the calibrated
+    per-cell P(out) into an expected out probability (the calibrator was fit on
+    all batted balls, so its expectation must be taken under the landing
+    density, not the hit-weighted one).
 
     trajectory: None → all batted balls; "ground" → weight by groundball share;
     "air" → weight by flyball+linedrive+popup share. Weather drifts fly balls
@@ -131,8 +172,7 @@ def build_hit_probability_grid(
         cx, cy = ZONE_CENTERS[z]
         sigma = ZONE_SIGMA[z]
 
-        # Weight by hit probability for this zone
-        weight = zone_row.hit_pct * zone_row.sample_n
+        weight = zone_row.sample_n if density == "landing" else zone_row.hit_pct * zone_row.sample_n
         if trajectory == "ground":
             weight *= zone_row.groundball_pct
         elif trajectory == "air":
@@ -148,12 +188,11 @@ def build_hit_probability_grid(
         ).astype(np.float32)
         grid += blob * weight
 
-    # Apply weather: crosswind drift (x) + carry depth (y), trajectory-aware
+    # Apply weather: crosswind drift (x) + carry depth (y), trajectory-aware.
+    # Zero-fill shift (not np.roll): mass pushed past an edge is dropped.
     if weather is not None:
         shift_x, shift_y = _weather_shift(weather, trajectory, altitude_ft)
-        if shift_x != 0 or shift_y != 0:
-            grid = np.roll(grid, shift_x, axis=1)
-            grid = np.roll(grid, shift_y, axis=0)
+        grid = _shift2d(grid, shift_x, shift_y)
 
     # Normalise to [0, 1]
     total = grid.sum()
@@ -454,6 +493,67 @@ def pitcher_trajectory_weights(pitcher_profile: Any | None) -> tuple[float, floa
     return ground_w, air_w
 
 
+def _coverage_by_trajectory(reaches: list[FielderReach]) -> tuple[np.ndarray, np.ndarray]:
+    """(ground_coverage, air_coverage) grids: infielders convert ground balls,
+    outfielders convert air balls, cross-coverage at reduced weight. This is the
+    exact per-cell quantity the out-probability calibrator was fit on."""
+    infield = [r for r in reaches if r.position in INFIELD]
+    outfield = [r for r in reaches if r.position in OUTFIELD]
+    in_cov = _combined_coverage(infield) if infield else np.zeros((GRID, GRID), dtype=np.float32)
+    out_cov = _combined_coverage(outfield) if outfield else np.zeros((GRID, GRID), dtype=np.float32)
+    return np.maximum(in_cov, out_cov * 0.15), np.maximum(out_cov, in_cov * 0.30)
+
+
+def _tilt_share(share: float, ground_weight: float, air_weight: float) -> float:
+    """Tilt a ground-ball share by the pitcher's trajectory weights, renormalized."""
+    g = share * ground_weight
+    a = (1.0 - share) * air_weight
+    return g / (g + a) if (g + a) > 0 else LEAGUE_GROUND_SHARE
+
+
+def batter_ground_share(
+    spray_zones: list[BatterSprayProfile],
+    ground_weight: float = 1.0,
+    air_weight: float = 1.0,
+) -> float:
+    """P(ground ball | ball in play) for this batter — sample-weighted across
+    spray zones, tilted by the pitcher's trajectory weights and renormalized.
+    League average when no spray data."""
+    total = sum(z.sample_n for z in spray_zones) if spray_zones else 0
+    if total > 0:
+        share = sum(z.sample_n * z.groundball_pct for z in spray_zones) / total
+    else:
+        share = LEAGUE_GROUND_SHARE
+    return _tilt_share(share, ground_weight, air_weight)
+
+
+def calibrated_out_probability(
+    ground_landing_grid: np.ndarray,
+    air_landing_grid: np.ndarray,
+    reaches: list[FielderReach],
+    calibrator: Any,
+    ground_share: float,
+) -> float:
+    """Model P(out | ball in play) for an alignment — on a probability scale,
+    but NOT scenario-level calibrated.
+
+    Per-cell coverage is mapped through the validated per-trajectory isotonic
+    calibrator (coverage → P(out); see services/alignment/calibration.py), then
+    averaged under the batter's spray-model *landing* density and blended by
+    the batter's ground/air mix. The per-cell map is outcome-validated; the
+    expectation is taken under the 8-Gaussian density, which an end-to-end
+    check showed inflates the absolute level ~+0.05 and washes out
+    batter-level signal (documentation/EXPERIMENTS.md 2026-09-03). Differences
+    between alignments (oaa_delta) are direction-validated; the absolute value
+    is an approximate index. The principled fix — an empirical per-batter
+    landing density — is roadmap P1.
+    """
+    cov_ground, cov_air = _coverage_by_trajectory(reaches)
+    p_ground = float((ground_landing_grid * calibrator.apply(cov_ground, "ground")).sum())
+    p_air = float((air_landing_grid * calibrator.apply(cov_air, "air")).sum())
+    return ground_share * p_ground + (1.0 - ground_share) * p_air
+
+
 def _expected_outs(
     ground_grid: np.ndarray,
     air_grid: np.ndarray,
@@ -463,20 +563,19 @@ def _expected_outs(
     air_weight: float = 1.0,
 ) -> float:
     """
-    Trajectory-aware expected outs: infielders convert ground balls,
-    outfielders convert air balls; cross-coverage at reduced weight.
-    ``ground_weight``/``air_weight`` tilt the balance by pitcher tendency
-    (both 1.0 = batter-only baseline).
+    Trajectory-aware coverage score used INTERNALLY for optimization and
+    candidate ranking: infielders convert ground balls, outfielders convert air
+    balls; cross-coverage at reduced weight. ``ground_weight``/``air_weight``
+    tilt the balance by pitcher tendency (both 1.0 = batter-only baseline).
+
+    NOT a probability — the coverage-weighted hit-mass is VERIFIED-miscalibrated
+    (reliability slope ~0.39, documentation/EXPERIMENTS.md). User-facing
+    probabilities go through ``calibrated_out_probability`` instead.
     """
-    infield = [r for r in reaches if r.position in INFIELD]
-    outfield = [r for r in reaches if r.position in OUTFIELD]
+    cov_ground, cov_air = _coverage_by_trajectory(reaches)
 
-    in_cov = _combined_coverage(infield) if infield else np.zeros((GRID, GRID), dtype=np.float32)
-    out_cov = _combined_coverage(outfield) if outfield else np.zeros((GRID, GRID), dtype=np.float32)
-
-    # Weights: infield on grounders, outfield on air; cross terms reduced
-    ground_outs = float((ground_grid * np.maximum(in_cov, out_cov * 0.15)).sum()) * ground_weight
-    air_outs = float((air_grid * np.maximum(out_cov, in_cov * 0.30)).sum()) * air_weight
+    ground_outs = float((ground_grid * cov_ground).sum()) * ground_weight
+    air_outs = float((air_grid * cov_air).sum()) * air_weight
 
     if optimize_for == "prevent_extra_base":
         # Deep coverage matters more — upweight air-ball outs
@@ -492,8 +591,10 @@ def score_alignment(
     optimize_for: str,
 ) -> tuple[float, float, float]:
     """
-    Single-grid scoring (kept for API compatibility).
-    Returns (predicted_oaa_delta, predicted_hit_pct, confidence).
+    Single-grid scoring (kept for API compatibility). Returns
+    (predicted_oaa_delta, predicted_hit_pct, confidence) in RAW coverage units
+    — not calibrated probabilities; the served path uses compute_alignment /
+    score_custom_positions with the calibrator instead.
     """
     if hit_prob_grid.sum() == 0:
         return 0.0, 0.5, 0.1
@@ -631,6 +732,8 @@ def compute_alignment(
     pitcher_profile: Any | None = None,
     altitude_ft: float = 0.0,
     bats: str | None = None,
+    calibrator: Any | None = None,
+    landing: Any | None = None,
 ) -> list[AlignmentCandidate]:
     """
     Core engine: evaluate standard + shift variants + locally-optimized
@@ -640,6 +743,14 @@ def compute_alignment(
     weather (with stadium altitude) drifts and deepens fly balls. ``bats``
     (effective batting hand 'L'/'R') aims shift templates at the batter's pull
     side; None keeps the canonical (LH/RF) geometry.
+
+    With a ``calibrator`` (an OutCalibrator, the shipped default), each
+    candidate's ``hit_pct``/``oaa_delta`` come from ``calibrated_out_probability``:
+    oaa_delta = P(out | candidate) − P(out | standard) (direction-validated;
+    magnitude approximate) and hit_pct = 1 − P(out) (probability-scaled index,
+    not scenario-calibrated — see that function's docstring). Without one
+    (legacy / artifact missing) they fall back to the raw coverage score,
+    which is not interpretable as a probability at all.
     """
     ground_grid = build_hit_probability_grid(spray_zones, weather, trajectory="ground", altitude_ft=altitude_ft)
     air_grid = build_hit_probability_grid(spray_zones, weather, trajectory="air", altitude_ft=altitude_ft)
@@ -647,6 +758,25 @@ def compute_alignment(
     shift_type = suggest_shift_type(spray_zones, bats)
     sample_n = sum(z.sample_n for z in spray_zones) if spray_zones else 0
     confidence = _confidence_from_sample(sample_n)
+
+    ground_land = air_land = None
+    ground_share = 0.0
+    if calibrator is not None:
+        if landing is not None:
+            # Empirical landing density (LandingDensity — batter histogram or
+            # league prior); weather drift applied here, share tilted by pitcher.
+            ground_land = apply_weather_to_landing(landing.ground, weather, "ground", altitude_ft)
+            air_land = apply_weather_to_landing(landing.air, weather, "air", altitude_ft)
+            ground_share = _tilt_share(landing.ground_share, ground_weight, air_weight)
+        else:
+            # Legacy spray-model landing density (known biased — see
+            # documentation/EXPERIMENTS.md 2026-09-03; kept as the no-artifact
+            # fallback only).
+            ground_land = build_hit_probability_grid(
+                spray_zones, weather, trajectory="ground", altitude_ft=altitude_ft, density="landing")
+            air_land = build_hit_probability_grid(
+                spray_zones, weather, trajectory="air", altitude_ft=altitude_ft, density="landing")
+            ground_share = batter_ground_share(spray_zones, ground_weight, air_weight)
 
     def park_clamped(positions: dict[str, tuple[float, float]]) -> dict[str, tuple[float, float]]:
         if dimensions is None:
@@ -663,18 +793,31 @@ def compute_alignment(
         ground_grid, air_grid, list(std_reaches.values()), optimize_for,
         ground_weight, air_weight,
     )
+    std_p_out = (
+        calibrated_out_probability(
+            ground_land, air_land, list(std_reaches.values()), calibrator, ground_share)
+        if calibrator is not None else None
+    )
 
     def evaluate(name: str, positions: dict[str, tuple[float, float]]) -> AlignmentCandidate:
         reaches = _build_reaches(positions, fielder_profiles, roster)
-        outs = _expected_outs(
-            ground_grid, air_grid, list(reaches.values()), optimize_for,
-            ground_weight, air_weight,
-        )
+        if calibrator is not None:
+            p_out = calibrated_out_probability(
+                ground_land, air_land, list(reaches.values()), calibrator, ground_share)
+            oaa_delta = round(p_out - std_p_out, 4)
+            hit_pct = round(1.0 - p_out, 4)
+        else:
+            outs = _expected_outs(
+                ground_grid, air_grid, list(reaches.values()), optimize_for,
+                ground_weight, air_weight,
+            )
+            oaa_delta = round(outs - std_outs, 4)
+            hit_pct = round(max(0.0, 1.0 - outs), 4)
         return AlignmentCandidate(
             shift_type=name,
             positions=positions,
-            oaa_delta=round(outs - std_outs, 4),
-            hit_pct=round(max(0.0, 1.0 - outs), 4),
+            oaa_delta=oaa_delta,
+            hit_pct=hit_pct,
             confidence=confidence,
             legal=is_legal_alignment(positions, dimensions),
         )
@@ -718,10 +861,15 @@ def score_custom_positions(
     pitcher_profile: Any | None = None,
     altitude_ft: float = 0.0,
     bats: str | None = None,
+    calibrator: Any | None = None,
+    landing: Any | None = None,
 ) -> AlignmentCandidate:
     """
     Score an exact user-supplied arrangement (e.g. from dragging fielders)
-    against the standard benchmark. Does not move any fielder.
+    against the standard benchmark. Does not move any fielder. With a
+    ``calibrator``, hit_pct/oaa_delta follow the semantics documented on
+    ``compute_alignment`` (direction-validated delta, uncalibrated absolute);
+    without one they are the raw coverage score.
     """
     ground_grid = build_hit_probability_grid(spray_zones, weather, trajectory="ground", altitude_ft=altitude_ft)
     air_grid = build_hit_probability_grid(spray_zones, weather, trajectory="air", altitude_ft=altitude_ft)
@@ -730,22 +878,42 @@ def score_custom_positions(
 
     std_positions = default_positions_for_shift("standard", bats)
     std_reaches = _build_reaches(std_positions, fielder_profiles, roster)
-    std_outs = _expected_outs(
-        ground_grid, air_grid, list(std_reaches.values()), optimize_for,
-        ground_weight, air_weight,
-    )
-
     reaches = _build_reaches(custom_positions, fielder_profiles, roster)
-    outs = _expected_outs(
-        ground_grid, air_grid, list(reaches.values()), optimize_for,
-        ground_weight, air_weight,
-    )
+
+    if calibrator is not None:
+        if landing is not None:
+            ground_land = apply_weather_to_landing(landing.ground, weather, "ground", altitude_ft)
+            air_land = apply_weather_to_landing(landing.air, weather, "air", altitude_ft)
+            ground_share = _tilt_share(landing.ground_share, ground_weight, air_weight)
+        else:
+            ground_land = build_hit_probability_grid(
+                spray_zones, weather, trajectory="ground", altitude_ft=altitude_ft, density="landing")
+            air_land = build_hit_probability_grid(
+                spray_zones, weather, trajectory="air", altitude_ft=altitude_ft, density="landing")
+            ground_share = batter_ground_share(spray_zones, ground_weight, air_weight)
+        std_p_out = calibrated_out_probability(
+            ground_land, air_land, list(std_reaches.values()), calibrator, ground_share)
+        p_out = calibrated_out_probability(
+            ground_land, air_land, list(reaches.values()), calibrator, ground_share)
+        oaa_delta = round(p_out - std_p_out, 4)
+        hit_pct = round(1.0 - p_out, 4)
+    else:
+        std_outs = _expected_outs(
+            ground_grid, air_grid, list(std_reaches.values()), optimize_for,
+            ground_weight, air_weight,
+        )
+        outs = _expected_outs(
+            ground_grid, air_grid, list(reaches.values()), optimize_for,
+            ground_weight, air_weight,
+        )
+        oaa_delta = round(outs - std_outs, 4)
+        hit_pct = round(max(0.0, 1.0 - outs), 4)
 
     return AlignmentCandidate(
         shift_type="custom",
         positions=custom_positions,
-        oaa_delta=round(outs - std_outs, 4),
-        hit_pct=round(max(0.0, 1.0 - outs), 4),
+        oaa_delta=oaa_delta,
+        hit_pct=hit_pct,
         confidence=_confidence_from_sample(sample_n),
         legal=is_legal_alignment(custom_positions, dimensions),
     )

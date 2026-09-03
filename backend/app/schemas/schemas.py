@@ -224,6 +224,23 @@ class AlignmentSummary(BaseModel):
 
 
 class AlignmentResponse(BaseModel):
+    """Alignment recommendation.
+
+    Probability semantics (see documentation/TRUST_REPORT.md, 2026-09-03):
+    ``predicted_oaa_delta`` = P(out | this alignment) − P(out | standard) on
+    the calibrated per-ball surface; its DIRECTION is outcome-validated
+    (EXPERIMENTS.md P1 Part 1), its magnitude is approximate. The absolute
+    ``predicted_out_pct``/``predicted_hit_pct`` are calibrated at the
+    POPULATION level only (mean bias +0.005 under the empirical landing
+    density, ``landing_source="batter"``/"league"): read them as "roughly the
+    league out rate, adjusted for this alignment/weather/mix", NOT as a
+    batter-specific probability — batter-to-batter variation in them carries
+    no validated signal and must not be used to rank batters (EXPERIMENTS.md
+    2026-09-03, empirical-density entry). Estimand excludes home runs.
+    ``calibrator_version`` names the coverage→P(out) map; null ⇒ raw legacy
+    score, never a probability. ``landing_source="spray"`` ⇒ legacy Gaussian
+    density with a known +0.055 high bias.
+    """
     alignment_id: uuid.UUID
     shift_type: str
     fielder_positions: dict[str, FielderPosition]
@@ -242,6 +259,11 @@ class AlignmentResponse(BaseModel):
     pitcher_groundball_pct: float | None = None
     # Fly-ball carry multiplier applied for weather (null when no weather)
     weather_carry: float | None = None
+    # Version of the out-probability calibrator applied (null = raw, uncalibrated)
+    calibrator_version: str | None = None
+    # Landing density behind the expectation: "batter" (empirical histogram),
+    # "league" (no batter history — league prior), "spray" (legacy Gaussian model)
+    landing_source: str | None = None
 
 
 class AlignmentHistoryItem(BaseModel):
@@ -278,6 +300,10 @@ class AlignmentScoreRequest(BaseModel):
 
 
 class AlignmentScoreResponse(BaseModel):
+    """Score for a user-arranged alignment. Same probability semantics as
+    AlignmentResponse: the delta's direction is validated; absolute hit/out
+    percentages are population-level calibrated only — not batter-specific
+    (documentation/TRUST_REPORT.md 2026-09-03)."""
     shift_type: str
     predicted_oaa_delta: float
     predicted_hit_pct: float
@@ -285,6 +311,8 @@ class AlignmentScoreResponse(BaseModel):
     confidence: float
     legal: bool
     illegal_positions: list[str]
+    calibrator_version: str | None = None
+    landing_source: str | None = None
 
 
 # ─── Injuries ─────────────────────────────────────────────────────────────────

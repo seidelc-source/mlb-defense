@@ -144,6 +144,13 @@ export interface AlignmentResponse {
   pitcher_type?: string | null
   pitcher_groundball_pct?: number | null
   weather_carry?: number | null
+  // Version of the coverage→P(out) map behind the predictions. The delta's
+  // direction is outcome-validated; absolute hit/out pcts are calibrated at
+  // the population level only — never rank batters by them. Null ⇒ raw
+  // legacy score.
+  calibrator_version?: string | null
+  // "batter" | "league" | "spray" — landing density behind the expectation
+  landing_source?: string | null
 }
 
 export interface WeatherInput {
@@ -276,6 +283,8 @@ export interface AlignmentScoreResponse {
   confidence: number
   legal: boolean
   illegal_positions: string[]
+  calibrator_version?: string | null
+  landing_source?: string | null
 }
 
 export interface InjuryCreate {

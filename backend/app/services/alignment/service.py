@@ -36,6 +36,15 @@ from app.schemas.schemas import (
     AlignmentSummary,
     FielderPosition,
 )
+import numpy as np
+
+from app.services.alignment.calibration import get_calibrator
+from app.services.alignment.landing import (
+    AIR_TRAJECTORIES,
+    LandingDensity,
+    build_landing_density,
+    get_league_landing,
+)
 from app.services.alignment.engine import (
     GRID,
     STANDARD_POSITIONS,
@@ -55,9 +64,20 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-def _request_cache_key(req: AlignmentRequest) -> str:
+def _model_version(calibrator) -> str:
+    """Persisted model identifier: engine version + calibrator version, so
+    logged predictions are attributable to the exact probability map.
+    0.3.0 = empirical landing density serving path (2026-09-03)."""
+    return f"0.3.0+cal-{calibrator.version}" if calibrator else "0.3.0-raw"
+
+
+LANDING_CACHE_TTL = 86_400  # rebuilt daily — landing histograms move slowly
+
+
+def _request_cache_key(req: AlignmentRequest, calibrator) -> str:
     payload = json.dumps(
         {
+            "model": _model_version(calibrator),
             "batter": str(req.batter_id),
             "pitcher": str(req.pitcher_id),
             "stadium": str(req.stadium_id),
@@ -144,8 +164,60 @@ class AlignmentService:
         pitcher_throws = rows.get(pitcher_id, (None, None))[1]
         return resolve_batter_hand(bats, pitcher_throws)
 
+    async def _landing_density(self, batter_id: uuid.UUID | None) -> LandingDensity | None:
+        """Empirical landing density for the batter (Redis-cached, daily TTL);
+        league prior when the batter has no batted-ball history (fixes the
+        uniform-fallback bias, red-team D1); None when the league artifact is
+        missing too (engine then uses the legacy spray-model path)."""
+        league = get_league_landing()
+        if batter_id is None:
+            return league
+        key = f"landing:{batter_id}:v1"
+        cached = await cache_get(key)
+        if cached:
+            return LandingDensity(
+                ground=np.asarray(cached["ground"], dtype=np.float32),
+                air=np.asarray(cached["air"], dtype=np.float32),
+                ground_share=float(cached["ground_share"]),
+                source=cached["source"],
+                n=int(cached["n"]),
+            )
+        from sqlalchemy import select
+        from app.models.pitch_appearance import PitchAppearance
+        stmt = select(
+            PitchAppearance.hc_x,
+            PitchAppearance.hc_y,
+            PitchAppearance.ball_trajectory,
+            PitchAppearance.season,
+        ).where(
+            PitchAppearance.batter_id == batter_id,
+            PitchAppearance.general_result.in_(("hit", "out")),
+            PitchAppearance.specific_result != "hr",
+            PitchAppearance.hc_x.is_not(None),
+            PitchAppearance.hc_y.is_not(None),
+            PitchAppearance.ball_trajectory.is_not(None),
+        )
+        rows = (await self.session.execute(stmt)).all()
+        density = build_landing_density(
+            hc_x=np.array([r[0] for r in rows], dtype=float),
+            hc_y=np.array([r[1] for r in rows], dtype=float),
+            is_air=np.array([r[2] in AIR_TRAJECTORIES for r in rows], dtype=bool),
+            season=np.array([r[3] for r in rows], dtype=float),
+            league=league,
+        )
+        if density is not None and density.source == "batter":
+            await cache_set(key, {
+                "ground": np.round(density.ground, 6).tolist(),
+                "air": np.round(density.air, 6).tolist(),
+                "ground_share": density.ground_share,
+                "source": density.source,
+                "n": density.n,
+            }, LANDING_CACHE_TTL)
+        return density
+
     async def recommend(self, req: AlignmentRequest) -> AlignmentResponse:
-        cache_key = _request_cache_key(req)
+        calibrator = get_calibrator()
+        cache_key = _request_cache_key(req, calibrator)
 
         # ── 1. Cache check ────────────────────────────────────────────────────
         cached = await cache_get(cache_key)
@@ -192,6 +264,7 @@ class AlignmentService:
         # ── 4. Engine ─────────────────────────────────────────────────────────
         dimensions, altitude = await self._park_context(req.stadium_id)
         bats = await self._batter_hand(req.batter_id, req.pitcher_id)
+        landing = await self._landing_density(req.batter_id) if calibrator else None
         candidates = compute_alignment(
             spray_zones=spray_zones,
             fielder_profiles=adjusted_profiles,
@@ -203,6 +276,8 @@ class AlignmentService:
             pitcher_profile=pitcher_profile,
             altitude_ft=altitude,
             bats=bats,
+            calibrator=calibrator,
+            landing=landing,
         )
 
         if not candidates:
@@ -261,10 +336,12 @@ class AlignmentService:
             weather_carry=(
                 round(carry_factor(weather, altitude), 4) if weather is not None else None
             ),
+            calibrator_version=calibrator.version if calibrator else None,
+            landing_source=landing.source if landing else "spray",
         )
 
         # ── 6. Persist + cache ────────────────────────────────────────────────
-        await self._persist(req, best, alignment_id, factors_applied)
+        await self._persist(req, best, alignment_id, factors_applied, calibrator)
         await cache_set(
             cache_key, response.model_dump(), settings.cache_ttl_alignment
         )
@@ -295,6 +372,8 @@ class AlignmentService:
         positions = {pos: (p.x, p.y) for pos, p in req.positions.items()}
         dimensions, altitude = await self._park_context(req.stadium_id)
         bats = await self._batter_hand(req.batter_id, getattr(req, "pitcher_id", None))
+        calibrator = get_calibrator()
+        landing = await self._landing_density(req.batter_id) if calibrator else None
         candidate = score_custom_positions(
             custom_positions=positions,
             spray_zones=spray_zones,
@@ -305,6 +384,8 @@ class AlignmentService:
             dimensions=dimensions,
             altitude_ft=altitude,
             bats=bats,
+            calibrator=calibrator,
+            landing=landing,
         )
 
         illegal = [
@@ -319,6 +400,8 @@ class AlignmentService:
             confidence=candidate.confidence,
             legal=candidate.legal,
             illegal_positions=illegal,
+            calibrator_version=calibrator.version if calibrator else None,
+            landing_source=landing.source if landing else "spray",
         )
 
     async def _persist(
@@ -327,6 +410,7 @@ class AlignmentService:
         best: AlignmentCandidate,
         alignment_id: uuid.UUID,
         factors_applied: list[str],
+        calibrator=None,
     ) -> None:
         try:
             await self.alignment_repo.create(
@@ -351,6 +435,7 @@ class AlignmentService:
                 confidence=best.confidence,
                 factors_used=factors_applied,
                 optimize_for=req.optimize_for,
+                model_version=_model_version(calibrator),
             )
         except Exception as exc:
             logger.warning("Failed to persist alignment: %s", exc)
