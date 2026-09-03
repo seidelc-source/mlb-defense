@@ -323,7 +323,11 @@ def suggest_shift_type(
 ) -> str:
     """Heuristic: if >40% of balls go to the pull-side infield zones, suggest an
     infield shift. Pull side depends on batter handedness — zones are reflected
-    for right-handed batters so the canonical (pull = RF) logic applies."""
+    for right-handed batters so the canonical (pull = RF) logic applies.
+
+    NOT outcome-validated: this selection rule adds no value over shifting
+    broadly (EXPERIMENTS.md P1 Part 2, 2026-09-02) — treat the returned label
+    as a template name, not a validated recommendation."""
     if not spray_zones:
         return "standard"
 

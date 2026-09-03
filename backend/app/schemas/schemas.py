@@ -240,6 +240,12 @@ class AlignmentResponse(BaseModel):
     ``calibrator_version`` names the coverage→P(out) map; null ⇒ raw legacy
     score, never a probability. ``landing_source="spray"`` ⇒ legacy Gaussian
     density with a known +0.055 high bias.
+
+    ``shift_type`` is a HEURISTIC template label: the pull-based selection of
+    when/which way to shift is NOT outcome-validated and has not been shown to
+    beat shifting broadly (EXPERIMENTS.md P1 Part 2; ROADMAP decision point A).
+    The per-batter optimized placement behind ``predicted_oaa_delta`` is the
+    direction-validated output.
     """
     alignment_id: uuid.UUID
     shift_type: str

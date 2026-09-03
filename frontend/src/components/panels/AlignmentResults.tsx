@@ -37,17 +37,23 @@ export function AlignmentResults({ alignment, isLoading, error }: Props) {
 
       {/* score strip — big numbers */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="score-cell">
+        <div
+          className="score-cell"
+          title="Predicted outs added vs the standard alignment — outcome-validated for direction"
+        >
           <strong style={{ color: alignment.predicted_oaa_delta >= 0 ? 'var(--ok)' : 'var(--danger)' }}>
             {formatSigned(alignment.predicted_oaa_delta, 2)}
           </strong>
           <span>OAA Δ</span>
         </div>
-        <div className="score-cell">
+        <div
+          className="score-cell"
+          title="League-calibrated scale — not specific to this batter"
+        >
           <strong>{(alignment.predicted_out_pct * 100).toFixed(0)}%</strong>
-          <span>out</span>
+          <span>out (lg)</span>
         </div>
-        <div className="score-cell">
+        <div className="score-cell" title="Sample-size heuristic, not a calibrated uncertainty">
           <strong>{(alignment.confidence * 100).toFixed(0)}%</strong>
           <span>conf</span>
         </div>
@@ -56,14 +62,21 @@ export function AlignmentResults({ alignment, isLoading, error }: Props) {
       <div className="flex items-center gap-2">
         <span
           className="text-xs font-extrabold px-2.5 py-1 rounded-full"
+          title="Positioning template label — shift selection is a heuristic, not outcome-validated"
           style={{ background: '#f2dfc9', color: 'var(--clay-dark)', border: '1px solid var(--clay)' }}
         >
           {alignment.shift_type.replace(/_/g, ' ')}
         </span>
         <span className="text-xs" style={{ color: 'var(--muted)' }}>
-          hit {(alignment.predicted_hit_pct * 100).toFixed(1)}%
+          hit {(alignment.predicted_hit_pct * 100).toFixed(1)}% (lg)
         </span>
       </div>
+
+      <p className="text-[11px] leading-snug" style={{ color: 'var(--muted)' }}>
+        OAA Δ is the outcome-validated number. The shift label is a heuristic template — picking
+        when to shift this way hasn't been shown to beat shifting broadly. Out/hit % are
+        league-calibrated averages, not batter-specific.
+      </p>
 
       {alignment.pitcher_type && (
         <div className="text-xs" style={{ color: 'var(--muted)' }}>
