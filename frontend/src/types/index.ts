@@ -57,6 +57,10 @@ export interface FieldingProfile {
   arm_strength_level: number | null
   arm_accuracy_pct: number | null
   arm_accuracy_level: number | null
+  // Per-opportunity success rates (Savant); diff = OAA per opportunity
+  actual_success_rate: number | null
+  estimated_success_rate: number | null
+  diff_success_rate: number | null
   outs_above_average: number | null
   oaa_back: number | null
   oaa_in: number | null

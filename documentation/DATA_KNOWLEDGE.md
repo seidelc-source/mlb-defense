@@ -35,7 +35,7 @@
 - **Defects found 2026-09-04 (reach-vs-OAA experiment)** [VERIFIED — SQL counts + ingest code + leaderboard probe]:
   - `reaction_time_s` and `route_efficiency_pct` are NULL for **all** rows → every fielder gets the defaults; cross-player reach variation is sprint-speed-only as served.
   - `innings` and `games` are 0 for **all** rows: `ingest_services.py` maps `n_games`/`innings`, columns the Savant OAA leaderboard does not provide. No playing-time field exists in the DB.
-  - The leaderboard DOES provide `actual/adj_estimated/diff_success_rate` (per-opportunity OAA rate — playing-time-standardized) which the ingest silently drops. Capture is a P1 roadmap item.
+  - The leaderboard DOES provide `actual/adj_estimated/diff_success_rate` (per-opportunity OAA rate — playing-time-standardized) which the ingest silently dropped. **FIXED 2026-09-04**: Alembic `006` added the three columns; ingest parses the integer-percent strings; backfilled 2016–2025 (2,489 rows populated, spot-checked against the raw leaderboard; served via `/players/{id}/fielding` and shown as "OAA rate" in the profile UI). `innings`/`games` remain 0 — no upstream source in this leaderboard. Related sources noted for the reach re-derivation: `statcast_outfielder_jump` (reaction/burst/route distances, OF-only) and `statcast_outfield_catch_prob` (per-star opportunity counts → OF attempts).
   - Validation status of the reach model built on these fields: OF reach ranks realized OAA (+0.33); IF reach is noise (EXPERIMENTS.md 2026-09-04).
 
 ## `pitcher_profile`

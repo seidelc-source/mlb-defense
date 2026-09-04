@@ -91,6 +91,11 @@ class FieldingProfileResponse(BaseModel):
     arm_accuracy_pct: float | None
     arm_accuracy_level: int | None
 
+    # Per-opportunity success rates (Savant OAA leaderboard); diff = OAA/opportunity
+    actual_success_rate: float | None = None
+    estimated_success_rate: float | None = None
+    diff_success_rate: float | None = None
+
     outs_above_average: float | None
     oaa_back: float | None
     oaa_in: float | None

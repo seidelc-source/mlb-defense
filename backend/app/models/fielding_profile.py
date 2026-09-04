@@ -46,6 +46,14 @@ class FieldingProfile(UUIDMixin, TimestampMixin, Base):
     arm_accuracy_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     arm_accuracy_level: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1–5
 
+    # Per-opportunity success rates from the Savant OAA leaderboard: actual vs
+    # positioning-adjusted estimated; diff = OAA per opportunity — the
+    # playing-time-standardized skill rate (the leaderboard has no innings/
+    # games/attempts, which is why those columns are 0 for every row)
+    actual_success_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    estimated_success_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    diff_success_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     # Statcast composite metrics
     outs_above_average: Mapped[float | None] = mapped_column(Float, nullable=True)
     oaa_back: Mapped[float | None] = mapped_column(Float, nullable=True)

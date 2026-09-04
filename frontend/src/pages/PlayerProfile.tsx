@@ -402,6 +402,21 @@ function FieldingCard({ profile: fp }: { profile: FieldingProfile }) {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-2">
         <MetricRow label="OAA" value={fp.outs_above_average} format="signed" />
+        {fp.diff_success_rate != null && (
+          <div
+            className="flex justify-between text-xs"
+            title="Actual − estimated success rate: OAA per opportunity (playing-time-standardized)"
+          >
+            <span className="text-[color:var(--muted)]">OAA rate</span>
+            <span className={cn(
+              'text-[color:var(--ink)]',
+              fp.diff_success_rate > 0 && 'text-[color:var(--ok)]',
+              fp.diff_success_rate < 0 && 'text-[color:var(--danger)]',
+            )}>
+              {fp.diff_success_rate > 0 ? '+' : ''}{(fp.diff_success_rate * 100).toFixed(0)}%/opp
+            </span>
+          </div>
+        )}
         <MetricRow label="FRV" value={fp.fielding_run_value} format="signed" />
         <MetricRow label="Sprint" value={fp.sprint_speed_ft_s} suffix=" ft/s" />
         <MetricRow label="Sprint lvl" value={fp.sprint_speed_level} />

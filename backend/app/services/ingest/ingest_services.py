@@ -41,6 +41,16 @@ def _safe_int(value) -> int | None:
     return int(value)
 
 
+def _pct_from_str(value) -> float | None:
+    """Savant formats rates as integer-percent strings ('85%', '-3%') → fraction."""
+    if value is None or pd.isna(value):
+        return None
+    try:
+        return float(str(value).strip().rstrip("%")) / 100.0
+    except ValueError:
+        return None
+
+
 def _base_occupied(value) -> bool:
     """Statcast on_1b/on_2b/on_3b hold a runner's MLBAM id or NaN."""
     return value is not None and not pd.isna(value)
@@ -380,8 +390,14 @@ class FieldingIngestService:
                         sprint_speed = _safe_float(match.iloc[0]["sprint_speed"])
 
                 defaults = {
+                    # NOTE: the OAA leaderboard has NO games/innings/attempts
+                    # columns — these stay 0 (DATA_KNOWLEDGE.md 2026-09-04);
+                    # the playing-time-honest signal is the success rates below
                     "games": _safe_int(row.get("n_games")) or 0,
                     "innings": _safe_float(row.get("innings")) or 0.0,
+                    "actual_success_rate": _pct_from_str(row.get("actual_success_rate_formatted")),
+                    "estimated_success_rate": _pct_from_str(row.get("adj_estimated_success_rate_formatted")),
+                    "diff_success_rate": _pct_from_str(row.get("diff_success_rate_formatted")),
                     "sprint_speed_ft_s": sprint_speed,
                     "sprint_speed_level": _sprint_level(sprint_speed),
                     "outs_above_average": _safe_float(row.get("outs_above_average")),

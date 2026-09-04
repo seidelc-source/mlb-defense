@@ -23,6 +23,7 @@ async def main(
     end: str,
     skip_statcast: bool = False,
     statcast_only: bool = False,
+    fielding_only: bool = False,
 ) -> None:
     from app.services.ingest.ingest_services import (
         FieldingIngestService,
@@ -31,6 +32,14 @@ async def main(
     )
     from app.services.ingest.pitcher_aggregate import PitcherAggregateService
     from app.services.ingest.spray_aggregate import SprayAggregateService
+
+    if fielding_only:
+        async with AsyncSessionLocal() as session:
+            logger.info("=== Fielding profiles only (season %d) ===", season)
+            profiles = await FieldingIngestService(session).ingest(season)
+            await session.commit()
+            logger.info("Fielding profiles: %d", profiles)
+        return
 
     if not statcast_only:
         async with AsyncSessionLocal() as session:
@@ -81,5 +90,12 @@ if __name__ == "__main__":
         "--statcast-only", action="store_true",
         help="Only ingest pitches for the date range (no rosters/fielding/spray)",
     )
+    parser.add_argument(
+        "--fielding-only", action="store_true",
+        help="Only refresh fielding profiles for the season (idempotent upsert)",
+    )
     args = parser.parse_args()
-    asyncio.run(main(args.season, args.start, args.end, args.skip_statcast, args.statcast_only))
+    asyncio.run(main(
+        args.season, args.start, args.end,
+        args.skip_statcast, args.statcast_only, args.fielding_only,
+    ))
