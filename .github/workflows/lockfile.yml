@@ -1,0 +1,26 @@
+# One-shot utility: regenerate frontend/package-lock.json on a stock npm
+# (the local dev machine runs a patched npm whose script-approval layer
+# writes extraneous platform entries that break `npm ci`).
+name: Regenerate frontend lockfile
+
+on:
+  workflow_dispatch:
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Regenerate package-lock.json
+        working-directory: frontend
+        run: |
+          rm -f package-lock.json
+          npm install --package-lock-only
+          npm ci --dry-run
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: frontend/package-lock.json
