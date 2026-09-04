@@ -2,6 +2,12 @@
 
 > Project-specific: can current results be believed, and for what purpose? Updated by trust gates and reviews. Newest assessment first; keep prior assessments below as history.
 
+## 2026-09-04 assessment (reach model vs OAA — D5 partially resolved, split verdict)
+
+**Finding**: the pre-registered reach-vs-OAA cross-check (EXPERIMENTS.md 2026-09-04) tested TRUST_REPORT threat D5 (roster-attribute-driven P(out) deltas unvalidated) at the player level, against Savant per-opportunity OAA rates 2016–2025. **Split verdict**: OF sprint-speed reach VALIDATES for ranking (Spearman +0.33, CI [+0.24, +0.41]) but is under-credited ~2× (slope 1.95); **IF reach is noise** (Spearman +0.05 CI spans 0; slope 0.036) — the engine moves served P(out) on infielder speed with essentially no realized counterpart. [VERIFIED — `documentation/artifacts/reach_vs_oaa.json`]
+
+**Trust consequences**: (1) cross-roster comparisons and roster-attribute effects on served P(out) are **partially trusted for OF, untrusted for IF**; (2) **injury degradation on infielders** multiplies sprint speed → its served P(out) impact has no validated basis (UI already labels absolutes as league-scale, which contains the damage); (3) within-request `oaa_delta` (same 7 fielders both arms) is largely insulated — attribute scale mostly cancels. Underlying data defects recorded in DATA_KNOWLEDGE: reaction/route all NULL, innings/games all 0, per-opportunity rates dropped by ingest. Remediation is roadmapped (IF reach re-derivation, pre-registered; leaderboard ingest fix).
+
 ## 2026-09-04 assessment (shift-selection question CLOSED — decision point A fired)
 
 **Finding**: the pre-registered 3-signal experiment (EXPERIMENTS.md 2026-09-03, run 23:59) falsified the last roadmap candidates for a per-batter shift-selection signal: spray dispersion, hard-grounder share, and batter sprint speed all fail to beat "shift everyone" under the within-batter policy-value estimator (best Δs −0.5 to −1.2/1000, all CIs span 0, era-half guardrail fails). Combined with Part 2's pull-concentration failure, four observable signals spanning spray location, contact quality, and batter speed now show the same monotone-declining V(τ). The +13.9/1000 "oracle headroom" is reinterpreted as mostly estimation noise (in-sample max of two noisy per-batter arm rates). [VERIFIED — `documentation/artifacts/shift_selection_signals.json`]

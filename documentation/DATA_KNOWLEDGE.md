@@ -32,6 +32,11 @@
 - **Fields**: `outs_above_average` (+directional), `fielding_run_value`, `sprint_speed_ft_s`, `reaction_time_s`, `route_efficiency_pct`, `arm_*`, catcher-specific. Synced weekly (`fielding_weekly`) for current season. [VERIFIED — data_models.md]
 - **Engine use**: `get_latest_profile` returns the newest profile per fielder → for historical scenarios this is **future data** (lookahead). Fine for live use. [INFERRED]
 - **Missingness**: engine `compute_reach` falls back to defaults (speed 27 ft/s, rt 0.4, route 85%) when attributes are null. [VERIFIED]
+- **Defects found 2026-09-04 (reach-vs-OAA experiment)** [VERIFIED — SQL counts + ingest code + leaderboard probe]:
+  - `reaction_time_s` and `route_efficiency_pct` are NULL for **all** rows → every fielder gets the defaults; cross-player reach variation is sprint-speed-only as served.
+  - `innings` and `games` are 0 for **all** rows: `ingest_services.py` maps `n_games`/`innings`, columns the Savant OAA leaderboard does not provide. No playing-time field exists in the DB.
+  - The leaderboard DOES provide `actual/adj_estimated/diff_success_rate` (per-opportunity OAA rate — playing-time-standardized) which the ingest silently drops. Capture is a P1 roadmap item.
+  - Validation status of the reach model built on these fields: OF reach ranks realized OAA (+0.33); IF reach is noise (EXPERIMENTS.md 2026-09-04).
 
 ## `pitcher_profile`
 
