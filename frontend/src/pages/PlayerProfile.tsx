@@ -7,6 +7,7 @@ import { playerApi } from '@/api/playerApi'
 import { teamApi } from '@/api/alignmentApi'
 import { cn } from '@/lib/cn'
 import { mergeSeasons } from '@/lib/seasons'
+import { IS_DEMO } from '@/lib/demo'
 import type { FieldingProfile, InjuryCreate, PitcherProfile } from '@/types'
 
 export function PlayerProfile() {
@@ -225,8 +226,13 @@ function InjuryPanel({ playerId }: { playerId: string }) {
         <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>
           No active injuries. Adding one degrades the player's speed, range,
           and arm in every alignment until it's marked healed.
+          {IS_DEMO && ' Injury editing needs the live engine — run the app locally.'}
         </p>
       )}
+
+      {IS_DEMO ? null : (
+      <>
+
 
       {(injuries ?? []).map((inj) => (
         <div
@@ -309,6 +315,8 @@ function InjuryPanel({ playerId }: { playerId: string }) {
         <p className="text-xs mt-2" style={{ color: 'var(--danger)' }}>
           {(addMutation.error as Error).message}
         </p>
+      )}
+      </>
       )}
     </div>
   )

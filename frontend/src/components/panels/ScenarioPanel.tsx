@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useScenarioStore } from '@/stores/scenarioStore'
 import { PlayerPicker } from '@/components/ui/PlayerPicker'
 import { teamApi, stadiumApi } from '@/api/alignmentApi'
+import { IS_DEMO } from '@/lib/demo'
+import { useDemoManifest } from '@/demo/useDemoManifest'
 import { cn } from '@/lib/cn'
 
 const FIELD_POSITIONS = ['1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF']
@@ -10,6 +12,35 @@ const FIELD_POSITIONS = ['1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF']
 export function ScenarioPanel({ onRequestAlignment }: { onRequestAlignment: () => void }) {
   const store = useScenarioStore()
   const canRequest = !!store.batterId && !!store.pitcherId && !!store.teamId && !!store.stadiumId
+
+  const { data: demoManifest } = useDemoManifest()
+  const activeMatchup = demoManifest?.matchups.find(
+    (m) =>
+      m.batter_id === store.batterId &&
+      m.pitcher_id === store.pitcherId &&
+      m.team_id === store.teamId &&
+      m.stadium_id === store.stadiumId
+  )
+
+  // Demo fixtures exist per featured matchup, so selecting one drives every
+  // matchup field at once (individual selectors are locked below).
+  const selectMatchup = (id: string) => {
+    const m = demoManifest?.matchups.find((x) => x.id === id)
+    if (!m) return
+    const s = useScenarioStore.getState()
+    s.setBatter(m.batter_id)
+    s.setPitcher(m.pitcher_id)
+    s.setTeam(m.team_id)
+    s.setBattingTeam(m.batting_team_id)
+    s.setStadium(m.stadium_id)
+  }
+
+  // On first demo load (or a stale persisted scenario), snap to matchup #1
+  useEffect(() => {
+    if (!IS_DEMO || !demoManifest?.matchups.length || activeMatchup) return
+    selectMatchup(demoManifest.matchups[0].id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoManifest, activeMatchup])
 
   const { data: teams } = useQuery({
     queryKey: ['teams'],
@@ -46,6 +77,29 @@ export function ScenarioPanel({ onRequestAlignment }: { onRequestAlignment: () =
     <div className="flex flex-col gap-4 p-4 h-full overflow-y-auto">
       <h2 className="panel-kicker">Scenario</h2>
 
+      {IS_DEMO && (
+        <Section title="Featured Matchup">
+          <select
+            value={activeMatchup?.id ?? ''}
+            onChange={(e) => selectMatchup(e.target.value)}
+            className="block w-full mt-0.5"
+          >
+            <option value="" disabled>Select matchup…</option>
+            {(demoManifest?.matchups ?? []).map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </select>
+          <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
+            Demo scenarios are precomputed per matchup — batter, pitcher, defense,
+            and ballpark change together.
+          </p>
+        </Section>
+      )}
+
+      <fieldset
+        disabled={IS_DEMO}
+        className={cn('flex flex-col gap-4', IS_DEMO && 'opacity-60 pointer-events-none')}
+      >
       <Section title="Batting">
         <label className="text-xs" style={{ color: 'var(--muted)' }}>
           Batting team
@@ -115,6 +169,7 @@ export function ScenarioPanel({ onRequestAlignment }: { onRequestAlignment: () =
           </p>
         )}
       </Section>
+      </fieldset>
 
       <Section title="Game State">
         <div className="grid grid-cols-2 gap-2">

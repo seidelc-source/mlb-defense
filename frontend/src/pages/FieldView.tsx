@@ -10,6 +10,7 @@ import { useScenarioStore } from '@/stores/scenarioStore'
 import { alignmentApi, stadiumApi, teamApi, weatherApi } from '@/api/alignmentApi'
 import type { Point } from '@/lib/fieldCoords'
 import type { AlignmentRequest, AlignmentScoreResponse } from '@/types'
+import { IS_DEMO } from '@/lib/demo'
 import { cn } from '@/lib/cn'
 
 export function FieldView() {
@@ -203,13 +204,15 @@ export function FieldView() {
             <span className="text-sm font-extrabold" style={{ color: 'var(--ink)' }}>
               {battingTeam?.abbreviation ?? '—'} @ {fieldingTeam?.abbreviation ?? '—'}
             </span>
-            <button
-              onClick={swapSides}
-              title="Swap batting and fielding sides"
-              className="btn-chip !min-h-[22px] !px-1.5 text-[11px]"
-            >
-              ⇄
-            </button>
+            {!IS_DEMO && (
+              <button
+                onClick={swapSides}
+                title="Swap batting and fielding sides"
+                className="btn-chip !min-h-[22px] !px-1.5 text-[11px]"
+              >
+                ⇄
+              </button>
+            )}
             {parkLayout && (
               <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>
                 {parkLayout.name}
@@ -237,7 +240,7 @@ export function FieldView() {
               customPositions={customPositions}
               illegalPositions={customScore?.illegal_positions ?? []}
               weather={weather ?? null}
-              onFielderDrag={handleFielderDrag}
+              onFielderDrag={IS_DEMO ? undefined : handleFielderDrag}
             />
           </div>
         </div>

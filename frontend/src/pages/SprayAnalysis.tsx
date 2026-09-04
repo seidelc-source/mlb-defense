@@ -5,6 +5,7 @@ import { SprayChart } from '@/components/charts/SprayChart'
 import { useSpray } from '@/hooks/useSpray'
 import { teamApi } from '@/api/alignmentApi'
 import { playerApi } from '@/api/playerApi'
+import { IS_DEMO } from '@/lib/demo'
 import { cn } from '@/lib/cn'
 import type { SprayParams } from '@/api/playerApi'
 
@@ -104,7 +105,10 @@ export function SprayAnalysis() {
               <button
                 key={pt}
                 onClick={() => setPitchType(pt)}
+                disabled={IS_DEMO && pt !== 'All'}
+                title={IS_DEMO && pt !== 'All' ? 'Pitch-type filters need the live engine' : undefined}
                 className={cn(
+                  IS_DEMO && pt !== 'All' && 'opacity-40 cursor-not-allowed',
                   'px-2 py-1 text-xs rounded',
                   pitchType === pt
                     ? 'bg-[#f2dfc9] text-[color:var(--clay-dark)] border border-[color:var(--clay)] font-bold'
@@ -144,7 +148,10 @@ export function SprayAnalysis() {
               <button
                 key={b.label}
                 onClick={() => setSpeedBand(b.label)}
+                disabled={IS_DEMO && b.label !== 'All'}
+                title={IS_DEMO && b.label !== 'All' ? 'Speed filters need the live engine' : undefined}
                 className={cn(
+                  IS_DEMO && b.label !== 'All' && 'opacity-40 cursor-not-allowed',
                   'px-2 py-1 text-xs rounded',
                   speedBand === b.label
                     ? 'bg-[#f2dfc9] text-[color:var(--clay-dark)] border border-[color:var(--clay)] font-bold'

@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useScenarioStore } from '@/stores/scenarioStore'
 import { weatherApi } from '@/api/alignmentApi'
+import { IS_DEMO } from '@/lib/demo'
+import { useDemoManifest } from '@/demo/useDemoManifest'
+import { cn } from '@/lib/cn'
 import type { GameWeather } from '@/types'
 
 // Baseball-intuitive wind directions → meteorological "from" degrees that the
@@ -89,14 +92,16 @@ export function WeatherControls({
     <div className="panel">
       <div className="flex items-center justify-between mb-2">
         <h3 className="panel-kicker">Weather</h3>
-        <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--muted)' }}>
-          <input
-            type="checkbox"
-            checked={weather.enabled}
-            onChange={(e) => setWeather({ enabled: e.target.checked })}
-          />
-          Manual
-        </label>
+        {!IS_DEMO && (
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--muted)' }}>
+            <input
+              type="checkbox"
+              checked={weather.enabled}
+              onChange={(e) => setWeather({ enabled: e.target.checked })}
+            />
+            Manual
+          </label>
+        )}
       </div>
 
       {liveWeather && (
@@ -114,7 +119,9 @@ export function WeatherControls({
         </div>
       )}
 
-      {weather.enabled ? (
+      {IS_DEMO ? (
+        <DemoPresets effectSummary={weather.enabled && effect ? effect : null} />
+      ) : weather.enabled ? (
         <div className="space-y-2">
           <Slider
             label={`Temp ${weather.temperature_f}°F`}
@@ -167,6 +174,59 @@ export function WeatherControls({
           Toggle <b>Manual</b> to set conditions and factor weather into the recommendation.
         </p>
       )}
+    </div>
+  )
+}
+
+// Demo builds precompute weather effects for a fixed preset list, so the
+// continuous sliders are replaced by preset chips.
+function DemoPresets({ effectSummary }: { effectSummary: import('@/types').WeatherEffect | null }) {
+  const weather = useScenarioStore((s) => s.weather)
+  const setWeather = useScenarioStore((s) => s.setWeather)
+  const { data: manifest } = useDemoManifest()
+
+  const activeId = !weather.enabled
+    ? 'off'
+    : manifest?.weather_presets.find(
+        (p) =>
+          p.input &&
+          p.input.temperature_f === weather.temperature_f &&
+          p.input.humidity_pct === weather.humidity_pct &&
+          p.input.wind_speed_mph === weather.wind_speed_mph &&
+          p.input.wind_direction_deg === weather.wind_direction_deg
+      )?.id
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1">
+        {(manifest?.weather_presets ?? []).map((p) => (
+          <button
+            key={p.id}
+            onClick={() =>
+              p.input
+                ? setWeather({ enabled: true, ...p.input })
+                : setWeather({ enabled: false })
+            }
+            className={cn('btn-chip text-[11px]', activeId === p.id && 'is-active')}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {effectSummary && (
+        <div className="text-xs rounded-md px-2 py-1.5" style={{ border: '1px solid var(--line)' }}>
+          <span
+            className="font-extrabold"
+            style={{ color: effectSummary.carry_pct >= 0 ? 'var(--ok)' : 'var(--danger)' }}
+          >
+            {effectSummary.carry_pct >= 0 ? '+' : ''}{effectSummary.carry_pct}% carry
+          </span>
+          <span style={{ color: 'var(--muted)' }}> · {effectSummary.summary}</span>
+        </div>
+      )}
+      <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+        Applied to the next recommendation.
+      </p>
     </div>
   )
 }

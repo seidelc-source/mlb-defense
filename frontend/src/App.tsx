@@ -1,19 +1,25 @@
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Routes, Route, NavLink } from 'react-router-dom'
 import { FieldView } from '@/pages/FieldView'
 import { SprayAnalysis } from '@/pages/SprayAnalysis'
 import { PlayerProfile } from '@/pages/PlayerProfile'
 import { IngestDashboard } from '@/pages/IngestDashboard'
+import { IS_DEMO } from '@/lib/demo'
 
 const navItems = [
   { to: '/', label: 'Field View' },
   { to: '/spray', label: 'Spray Analysis' },
   { to: '/players', label: 'Players' },
-  { to: '/ingest', label: 'Ingest' },
+  // Ingest triggers a live pipeline — meaningless without a backend
+  ...(IS_DEMO ? [] : [{ to: '/ingest', label: 'Ingest' }]),
 ]
+
+// GitHub Pages serves a single static entry point, so demo builds use
+// hash-based routing to keep deep links refreshable.
+const Router = IS_DEMO ? HashRouter : BrowserRouter
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <div className="flex flex-col h-screen">
         <nav
           className="flex items-center gap-1 px-4 py-2 shrink-0 border-b"
@@ -41,15 +47,33 @@ export default function App() {
           ))}
         </nav>
 
+        {IS_DEMO && (
+          <div
+            className="px-4 py-1.5 text-xs shrink-0 border-b"
+            style={{ background: '#f7ecd9', color: '#8a6116', borderColor: 'var(--line)' }}
+          >
+            <b>Static demo</b> — precomputed featured scenarios; fielder-drag re-scoring,
+            arbitrary matchups, and data ingest need the live engine.{' '}
+            <a
+              href="https://github.com/seidelc-source/mlb-defense"
+              target="_blank"
+              rel="noreferrer"
+              className="underline font-semibold"
+            >
+              Run it locally →
+            </a>
+          </div>
+        )}
+
         <main className="flex-1 overflow-hidden">
           <Routes>
             <Route path="/" element={<FieldView />} />
             <Route path="/spray" element={<SprayAnalysis />} />
             <Route path="/players" element={<PlayerProfile />} />
-            <Route path="/ingest" element={<IngestDashboard />} />
+            {!IS_DEMO && <Route path="/ingest" element={<IngestDashboard />} />}
           </Routes>
         </main>
       </div>
-    </BrowserRouter>
+    </Router>
   )
 }

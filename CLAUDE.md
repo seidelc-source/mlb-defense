@@ -90,6 +90,12 @@ python -m scripts.smoke                                           # end-to-end c
 - Park geometry: curated 5-point dims in `services/park_data.py`, wall polyline
   via `GET /stadiums/{id}/layout`, rendered by `components/field/ParkField.tsx`
   (1.0 norm = 400 ft; walls may slightly exceed 1.0 — SVG viewBox is padded)
+- Static demo (GitHub Pages): `VITE_DEMO_MODE=true` builds run entirely from
+  prebaked fixtures in `frontend/public/demo-data/` via an axios adapter
+  (`src/demo/adapter.ts`) — curated matchups + weather presets only; drag
+  re-scoring, ingest, and injury editing disabled. Regenerate fixtures with a
+  running backend: `cd backend && python -m scripts.build_demo_fixtures`.
+  Deployed by `.github/workflows/pages.yml`; demo routing uses HashRouter
 - UI theme: light "paper & field" palette via CSS vars in `src/index.css`
   (`--paper`, `--ink`, `--clay`, `--gold`, `--field`); panels use `.panel`,
   `.panel-kicker`, `.stat-pill`, `.btn-chip` component classes
