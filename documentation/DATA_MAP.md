@@ -1,6 +1,6 @@
 # Data Map
 
-> **TL;DR** (refresh this line whenever the file changes): Seed map from the 2026-09-03 /ds-integrate reconcile — all edges are drawn from code reading (DATA_KNOWLEDGE.md), **no empirical match-rate counts have been run yet** (`/ds-connect` pending). Weakest load-bearing edge: the `hc_x/hc_y → fielding_zone` derivation ("rough normalization", unverified constants) that every spray aggregate and the coverage eval sit on.
+> **TL;DR** (refresh this line whenever the file changes): Seed map from the 2026-09-03 /ds-integrate reconcile — all edges are drawn from code reading (DATA_KNOWLEDGE.md), **no empirical match-rate counts have been run yet** (`/ds-connect` pending). The weakest edge — the `hc_x/hc_y → grid` transform — was **calibrated 2026-09-04 and found materially wrong** (2.29 ft/unit not 2.0, era drift; ball frame ~13% compressed vs fielder frame). Coordinated frame rebuild is the top roadmap item; see DATA_KNOWLEDGE.md.
 
 > Project-specific connection map: how the datasets join, at what grain, under what temporal rules, and what each joined grain can answer. Maintained by `/ds-connect`. Edges are validated by counting, never by model performance. Label claims: VERIFIED / INFERRED / ASSUMED / HYPOTHESIS / UNKNOWN.
 

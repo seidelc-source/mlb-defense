@@ -1,0 +1,112 @@
+{
+ "assumed": {
+  "home": [
+   125.0,
+   200.0
+  ],
+  "ft_per_unit": 2.0
+ },
+ "fitted": {
+  "ft_per_unit": 2.2903272256778497,
+  "home_x": 125.95029405724526,
+  "home_y": 206.04514205725425,
+  "resid_mad_ft": 9.030736623641616,
+  "n": 200000
+ },
+ "fitted_ci95": {
+  "ft_per_unit": [
+   2.283782532737734,
+   2.2970161528241713
+  ],
+  "home_x": [
+   125.69333935423361,
+   126.18598178067586
+  ],
+  "home_y": [
+   205.588828615053,
+   206.46661351224793
+  ]
+ },
+ "by_trajectory": {
+  "flyball": {
+   "ft_per_unit": 2.3003569544008813,
+   "home_x": 126.07825388565854,
+   "home_y": 208.09443571914414,
+   "resid_mad_ft": 7.690092123999932,
+   "n": 89447
+  },
+  "linedrive": {
+   "ft_per_unit": 2.151856873894639,
+   "home_x": 125.53874210652134,
+   "home_y": 209.38042374833066,
+   "resid_mad_ft": 21.56142740040727,
+   "n": 90152
+  },
+  "popup": {
+   "ft_per_unit": 2.311470709336521,
+   "home_x": 126.46676783613856,
+   "home_y": 206.14280100580123,
+   "resid_mad_ft": 5.064336645099388,
+   "n": 20401
+  }
+ },
+ "by_era": {
+  "2021-2025": {
+   "ft_per_unit": 2.369417790315904,
+   "home_x": 125.94534520867282,
+   "home_y": 203.27877255533977,
+   "resid_mad_ft": 4.929690666794755,
+   "n": 112348
+  },
+  "2016-2020": {
+   "ft_per_unit": 2.2203497830281846,
+   "home_x": 125.98812551013489,
+   "home_y": 208.38550849140427,
+   "resid_mad_ft": 4.575203544516171,
+   "n": 87652
+  }
+ },
+ "scale_error_pct": 14.5,
+ "home_offset_hc_units": 6.12,
+ "landmarks": [
+  {
+   "landmark": "2B bag",
+   "true_ft": 127.28,
+   "normalized_radius_current_transform": 0.2779,
+   "normalized_radius_true": 0.3182,
+   "error_normalized": -0.0403,
+   "error_ft_equivalent": -16.1
+  },
+  {
+   "landmark": "IF depth",
+   "true_ft": 150.0,
+   "normalized_radius_current_transform": 0.3275,
+   "normalized_radius_true": 0.375,
+   "error_normalized": -0.0475,
+   "error_ft_equivalent": -19.0
+  },
+  {
+   "landmark": "corner wall",
+   "true_ft": 330.0,
+   "normalized_radius_current_transform": 0.7204,
+   "normalized_radius_true": 0.825,
+   "error_normalized": -0.1046,
+   "error_ft_equivalent": -41.8
+  },
+  {
+   "landmark": "CF wall",
+   "true_ft": 400.0,
+   "normalized_radius_current_transform": 0.8732,
+   "normalized_radius_true": 1.0,
+   "error_normalized": -0.1268,
+   "error_ft_equivalent": -50.7
+  }
+ ],
+ "impact": {
+  "fraction_cell_changed_50x50": 0.997265,
+  "median_displacement_ft_equivalent": 46.597996664614016
+ },
+ "verdict": "MATERIAL \u2014 coordinated rebuild warranted",
+ "sample": 200000,
+ "seed": 42
+}

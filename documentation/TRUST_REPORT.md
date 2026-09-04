@@ -2,6 +2,12 @@
 
 > Project-specific: can current results be believed, and for what purpose? Updated by trust gates and reviews. Newest assessment first; keep prior assessments below as history.
 
+## 2026-09-04 assessment (coordinate frame materially miscalibrated — in-frame claims stand, geometry distorted)
+
+**Finding**: the pre-registered hc-transform calibration (EXPERIMENTS.md 2026-09-04) shows the canonical ball-coordinate transform is materially wrong: true scale 2.29 ft/hc-unit vs assumed 2.0 (CI [2.284, 2.297]), home offset 6.1 units, with era drift (2.22 → 2.37 across MLBAM's raster change). The ball frame is radially compressed ~13% relative to the fielder frame (−16 ft at 2B, −42 ft at a 330-ft wall). [VERIFIED — `documentation/artifacts/hc_transform_calibration.json`]
+
+**Trust consequences — read carefully, this is NOT a retraction**: every outcome-validated result (calibrator + LOSO gate, landing density, policy evals) computed balls and coverage in the SAME frame, and the isotonic calibrator absorbs frame scale in the coverage→P(out) map — so served probabilities and `oaa_delta` direction claims **stand as validated-in-frame**. What IS distorted: (1) the fielder-reach ↔ ball-cloud interaction (reach radii in true feet act on a compressed ball cloud → effective coverage overstated ~13% radially, non-uniformly with depth); (2) geometry displays — `depth_ft`, spray overlays vs park walls (1.0 = 400 ft) misplace balls up to ~50 ft at wall depth; (3) weather drift/carry magnitudes operate on compressed distances. Remediation: the **coordinated frame rebuild** is the top roadmap item — transform + zones + sprays + landing artifacts + calibrator refit (gate must re-pass) + eval re-runs + demo fixtures, moved together; never piecemeal.
+
 ## 2026-09-04 assessment (reach model vs OAA — D5 partially resolved, split verdict)
 
 **Finding**: the pre-registered reach-vs-OAA cross-check (EXPERIMENTS.md 2026-09-04) tested TRUST_REPORT threat D5 (roster-attribute-driven P(out) deltas unvalidated) at the player level, against Savant per-opportunity OAA rates 2016–2025. **Split verdict**: OF sprint-speed reach VALIDATES for ranking (Spearman +0.33, CI [+0.24, +0.41]) but is under-credited ~2× (slope 1.95); **IF reach is noise** (Spearman +0.05 CI spans 0; slope 0.036) — the engine moves served P(out) on infielder speed with essentially no realized counterpart. [VERIFIED — `documentation/artifacts/reach_vs_oaa.json`]
