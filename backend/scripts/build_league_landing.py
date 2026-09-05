@@ -39,6 +39,7 @@ logger = logging.getLogger("build_league_landing")
 async def main(seasons, out_path) -> None:
     stmt = select(
         PitchAppearance.hc_x, PitchAppearance.hc_y, PitchAppearance.ball_trajectory,
+        PitchAppearance.season,
     ).where(
         PitchAppearance.general_result.in_(("hit", "out")),
         PitchAppearance.specific_result != "hr",
@@ -55,9 +56,10 @@ async def main(seasons, out_path) -> None:
     hc_x = np.array([r[0] for r in rows], dtype=float)
     hc_y = np.array([r[1] for r in rows], dtype=float)
     is_air = np.array([r[2] in AIR_TRAJECTORIES for r in rows])
-    row_i, col_i = hc_to_cell(hc_x, hc_y)
+    season = np.array([r[3] for r in rows], dtype=float)
+    row_i, col_i = hc_to_cell(hc_x, hc_y, season)
 
-    artifact = {"artifact": "league_landing", "version": "v1",
+    artifact = {"artifact": "league_landing", "version": "v2",
                 "fit_date": date.today().isoformat(), "n": int(len(rows)),
                 "ground_share": float((~is_air).mean())}
     for name, mask in (("ground", ~is_air), ("air", is_air)):

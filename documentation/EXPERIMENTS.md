@@ -6,6 +6,24 @@ First outcome-based experiment **run 2026-09-02** — see the P0 entry. Design f
 
 > **Artifact archive**: all `/tmp/*.json` / `/tmp/*.png` result files referenced below were copied to `documentation/artifacts/` (same filenames) on 2026-09-02 and are version-controlled there. The `/tmp` paths in the entries are the as-run commands, kept verbatim for the historical record; future runs should write to `documentation/artifacts/` directly.
 
+## 2026-09-04 — Coordinated frame rebuild (corrected hc transform) — SHIPPED 2026-09-04 — **ALL GATES PASS**
+
+- **Status**: gates pre-registered before the rebuild (below, unchanged); rebuilt and SHIPPED same day. Serving is now `model_version 0.4.0+cal-v2`.
+- **Change (one move)**: canonical hc transform becomes era-aware with the fitted constants (pre-2021: 2.2203 ft/unit, home (125.99, 208.39); 2021+: 2.3694 ft/unit, home (125.95, 203.28); breakpoint at the MLBAM raster change) with the normalized frame unchanged (home (0.5, 0), 1.0 = 400 ft). Downstream rebuilt in the corrected frame: `fielding_zone` backfill (all pitches), spray aggregates (all seasons), league landing artifact **v2**, per-batter landing cache **v2** keys, calibrator **v2** refit, serving `model_version` 0.4.0+cal-v2, demo fixtures regenerated. Old eval scripts keep their frozen in-frame transforms (their documented results remain reproducible); the living fit path (`eval_out_model` → `fit_calibrator`) moves to the canonical transform.
+- **Gates (pre-registered, all must pass to ship)**:
+  1. **Calibrator v2 LOSO reliability gate**: pooled OOF slope ∈ [0.9, 1.1] (same bar as v1; `fit_calibrator.py` refuses to write the artifact on failure). Expected: PASS — isotonic refit absorbs the frame change.
+  2. **Served-aggregation level check** (re-run `eval_served_aggregation` with the empirical density in the new frame): |mean served − realized| ≤ 0.01 (v1 achieved +0.005).
+  3. **Edge-clip rate**: fraction of in-play (HR-excluded) balls clipped at the grid boundary under the corrected transform reported; investigate if > 2% (the old compressed frame clipped ≈ 0%).
+  4. Full backend + frontend suites green; end-to-end smoke passes.
+- **Reported (descriptive, no bar)**: fraction of pitches whose `fielding_zone` changed; landing-density radial shift; spray-profile row-count deltas.
+- **Result** (all gates): [VERIFIED — `documentation/artifacts/calibrator_fit_report_v2.json`, `served_aggregation_check_v2.json`]
+  1. **Calibrator v2 gate: PASS** — LOSO OOF slope **0.995** (bounds [0.9, 1.1]), log loss 0.52829, n=884,402. The corrected frame *widened* the map's dynamic range (ground g: 0.320→0.945 vs v1's 0.484→0.871; air 0.546→0.894) — decompressing the ball cloud makes the coverage surface more discriminative, as geometry predicted.
+  2. **Served level check: PASS** — mean served 0.6950 vs realized 0.6901, bias **+0.0049** (bar ≤ 0.01). Observation (no claim change — the absolute-probability cap is permanent per the 2026-09-03 pre-registration): per-batter pearson moved **−0.10 → +0.095** (split-half +0.052) — the corrected frame no longer anti-correlates, but the signal remains far too weak to rank batters.
+  3. **Clip rate: 2.456% > 2% → investigated, ACCEPTED**: ~2.3% are **foul-territory plays** (behind-home clips are 91% popups; foul-line clips are fly/line outs; median overshoot 11–15 ft) — locations the fair-field frame cannot represent, which the OLD frame silently misplaced *inside fair territory* (the old ~0% clip rate was an artifact of the compression error, not a virtue). Genuine deep wall balls (ny>1) are 0.159% with median 6 ft overshoot. Clipped balls pin to the nearest edge.
+  4. **Suites/smoke: PASS** — 156 backend + 43 frontend tests green, end-to-end smoke passes, live rows persist `0.4.0+cal-v2`.
+  - Descriptive: **24.28%** of `fielding_zone` assignments changed (281,965 / 1,161,443 balls with hc); spray rows per season ~42–44k (2020: 28k), consistent with pre-rebuild counts; demo fixtures regenerated (516, 13.6 MB).
+- **Decision**: **SHIPPED.** The ball frame, fielder frame, park geometry, and UI displays now share one calibrated coordinate system (per-era constants). Historical experiment results before this date were computed in the old frame — internally consistent, retained as documented; the living fit/eval path uses the canonical transform. Frozen eval scripts keep their in-frame copies for reproducibility.
+
 ## 2026-09-04 — Coordinate-transform calibration: hc_x/hc_y vs measured distances (Gap 3) — RUN 2026-09-04 — **MATERIAL: ~13% radial compression + era drift**
 
 - **Status**: RUN same day; design fields unchanged; results appended. Audits the "rough normalization" (`nx=(hc_x−25)/200`, `ny=1−hc_y/200`) that every spray zone, landing grid, and eval harness sits on (flagged as the weakest load-bearing edge in DATA_MAP.md).

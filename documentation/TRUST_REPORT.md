@@ -2,6 +2,10 @@
 
 > Project-specific: can current results be believed, and for what purpose? Updated by trust gates and reviews. Newest assessment first; keep prior assessments below as history.
 
+## 2026-09-04 assessment (frame rebuild shipped — coordinate distortion RESOLVED)
+
+**Update on the assessment below**: the coordinated rebuild shipped the same day, all pre-registered gates passing (EXPERIMENTS.md 2026-09-04 frame-rebuild entry): era-aware canonical transform, zones backfilled (24.3% changed), sprays rebuilt, landing v2, calibrator v2 (LOSO slope 0.995), served level bias +0.0049, serving `0.4.0+cal-v2`. The ball frame, fielder frame, park geometry, and UI displays now share one measured coordinate system; the geometry distortions listed below are resolved. Two observations: (1) the calibration map's dynamic range widened (more discriminative surface — ground g now spans 0.32–0.94); (2) per-batter served-vs-realized correlation flipped −0.10 → +0.095 (split-half +0.05) — directionally encouraging but weak; **the permanent cap on absolute-probability claims is unchanged**. Foul-territory balls (~2.3%) now honestly clip to the field edge instead of being silently misplaced inside fair ground. [VERIFIED]
+
 ## 2026-09-04 assessment (coordinate frame materially miscalibrated — in-frame claims stand, geometry distorted)
 
 **Finding**: the pre-registered hc-transform calibration (EXPERIMENTS.md 2026-09-04) shows the canonical ball-coordinate transform is materially wrong: true scale 2.29 ft/hc-unit vs assumed 2.0 (CI [2.284, 2.297]), home offset 6.1 units, with era drift (2.22 → 2.37 across MLBAM's raster change). The ball frame is radially compressed ~13% relative to the fielder frame (−16 ft at 2B, −42 ft at a 330-ft wall). [VERIFIED — `documentation/artifacts/hc_transform_calibration.json`]

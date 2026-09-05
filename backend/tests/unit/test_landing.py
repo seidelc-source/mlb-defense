@@ -29,14 +29,18 @@ def _league_stub() -> LandingDensity:
 
 
 class TestHcToCell:
-    def test_matches_ingest_constants(self):
-        # hc (125, 100) → nx=(125−25)/200=0.5, ny=1−100/200=0.5 → grid center.
-        row, col = hc_to_cell(np.array([125.0]), np.array([100.0]))
-        assert row[0] == round(0.5 * (GRID - 1))
+    def test_home_plate_maps_to_center_col_row_zero(self):
+        # Era-aware canonical transform (2026-09-04 frame rebuild): fitted
+        # home plate maps to (0.5, 0) in both eras. Constants pinned in
+        # tests/unit/test_hc_transform.py.
+        row, col = hc_to_cell(np.array([125.945]), np.array([203.279]), np.array([2024]))
         assert col[0] == round(0.5 * (GRID - 1))
+        assert row[0] == 0
 
     def test_clips_out_of_frame(self):
-        row, col = hc_to_cell(np.array([-50.0, 500.0]), np.array([300.0, -50.0]))
+        row, col = hc_to_cell(
+            np.array([-50.0, 500.0]), np.array([300.0, -50.0]), np.array([2024, 2024])
+        )
         assert col[0] == 0 and row[0] == 0
         assert col[1] == GRID - 1 and row[1] == GRID - 1
 

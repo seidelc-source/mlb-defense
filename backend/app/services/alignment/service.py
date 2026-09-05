@@ -67,8 +67,9 @@ settings = get_settings()
 def _model_version(calibrator) -> str:
     """Persisted model identifier: engine version + calibrator version, so
     logged predictions are attributable to the exact probability map.
-    0.3.0 = empirical landing density serving path (2026-09-03)."""
-    return f"0.3.0+cal-{calibrator.version}" if calibrator else "0.3.0-raw"
+    0.3.0 = empirical landing density serving path (2026-09-03);
+    0.4.0 = corrected era-aware hc frame + v2 artifacts (2026-09-04)."""
+    return f"0.4.0+cal-{calibrator.version}" if calibrator else "0.4.0-raw"
 
 
 LANDING_CACHE_TTL = 86_400  # rebuilt daily — landing histograms move slowly
@@ -172,7 +173,7 @@ class AlignmentService:
         league = get_league_landing()
         if batter_id is None:
             return league
-        key = f"landing:{batter_id}:v1"
+        key = f"landing:{batter_id}:v2"  # v2 = corrected era-aware hc frame
         cached = await cache_get(key)
         if cached:
             return LandingDensity(

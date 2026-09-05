@@ -66,20 +66,21 @@ def _standard_out_grids() -> tuple[np.ndarray, np.ndarray]:
     return ground_p.astype(np.float32), air_p.astype(np.float32)
 
 
-def _hc_to_cell(hc_x: np.ndarray, hc_y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Mirror ingest._fielding_zone_from_hc's transform so the engine coverage
-    surface and the zone baseline share one coordinate frame (this is what makes
-    the *relative* comparison robust to the transform's absolute miscalibration)."""
-    nx = np.clip((hc_x - 25.0) / 200.0, 0.0, 1.0)
-    ny = np.clip(1.0 - hc_y / 200.0, 0.0, 1.0)
-    col = np.rint(nx * (GRID - 1)).astype(int)
-    row = np.rint(ny * (GRID - 1)).astype(int)
-    return row, col
+def _hc_to_cell(hc_x: np.ndarray, hc_y: np.ndarray, season: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Delegates to the canonical era-aware transform (landing.hc_to_cell) so
+    the calibrator fit path and serving share one ball frame. NOTE
+    (2026-09-04): gained `season` in the frame rebuild — results produced
+    before that date used the legacy fixed transform (see EXPERIMENTS.md)."""
+    from app.services.alignment.landing import hc_to_cell
+
+    return hc_to_cell(hc_x, hc_y, season)
 
 
 def engine_p_out(df: pd.DataFrame) -> np.ndarray:
     ground_p, air_p = _standard_out_grids()
-    row, col = _hc_to_cell(df["hc_x"].to_numpy(float), df["hc_y"].to_numpy(float))
+    row, col = _hc_to_cell(
+        df["hc_x"].to_numpy(float), df["hc_y"].to_numpy(float), df["season"].to_numpy(float)
+    )
     is_air = df["ball_trajectory"].isin(AIR_TRAJECTORIES).to_numpy()
     p = np.where(is_air, air_p[row, col], ground_p[row, col])
     return p.astype(float)

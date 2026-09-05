@@ -59,12 +59,19 @@ python -m scripts.smoke                                           # end-to-end c
 - Shift legality (MLB 2023+): 2 infielders each side of 2B, all on the dirt —
   enforced in `services/alignment/engine.py` (`is_legal_position`)
 - Transport grids are downsampled to 50×50; frontend scales heatmaps by max cell
+- Ball coordinates: ONE canonical era-aware transform maps Statcast `hc_x/hc_y`
+  to the normalized field (`services/alignment/landing.hc_to_norm`; per-era
+  constants fitted against measured hit distances, pinned by
+  `tests/unit/test_hc_transform.py`). Ingest zone assignment, landing
+  densities, and the calibrator fit path all import it — never add a second
+  copy of the transform; if it changes, the whole frame (zones, sprays,
+  landing, calibrator) must be rebuilt together (EXPERIMENTS.md 2026-09-04)
 - Out-probability calibration: served numbers go through the versioned
   per-trajectory isotonic artifact (`services/alignment/artifacts/
-  out_calibrator_v1.json`, loaded by `services/alignment/calibration.py`; refit
+  out_calibrator_v2.json`, loaded by `services/alignment/calibration.py`; refit
   with `scripts/fit_calibrator.py`, which enforces a reliability gate). The
   expectation runs over the batter's EMPIRICAL landing density
-  (`services/alignment/landing.py` + `league_landing_v1.json`; rebuild with
+  (`services/alignment/landing.py` + `league_landing_v2.json`; rebuild with
   `scripts/build_league_landing.py`). Claim discipline: `predicted_oaa_delta`
   is direction-validated; absolute `predicted_hit_pct`/`out_pct` are
   population-level calibrated only (never rank batters by them — TRUST_REPORT

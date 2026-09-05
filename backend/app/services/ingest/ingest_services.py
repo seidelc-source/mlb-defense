@@ -155,18 +155,16 @@ def _speed_level(mph: float | None) -> int | None:
     return None
 
 
-def _fielding_zone_from_hc(hc_x: float | None, hc_y: float | None) -> int | None:
-    """
-    Map Statcast hc_x / hc_y to fielding zone 1–8.
-    Statcast origin: home plate at (125, 199) with y increasing upward.
-    """
+def _fielding_zone_from_hc(hc_x: float | None, hc_y: float | None, season: int) -> int | None:
+    """Map Statcast hc_x / hc_y to fielding zone 1–8 via the canonical
+    era-aware transform (services/alignment/landing.hc_to_norm — calibrated
+    against measured hit distances, EXPERIMENTS.md 2026-09-04)."""
     if hc_x is None or hc_y is None or pd.isna(hc_x) or pd.isna(hc_y):
         return None
-    # Normalize to 0–1 field coordinates
-    nx = (hc_x - 25) / 200.0    # rough normalization
-    ny = 1.0 - (hc_y - 0) / 200.0
-    nx = max(0.0, min(1.0, nx))
-    ny = max(0.0, min(1.0, ny))
+    from app.services.alignment.landing import hc_to_norm
+
+    nx_a, ny_a = hc_to_norm(float(hc_x), float(hc_y), season)
+    nx, ny = float(nx_a), float(ny_a)
 
     import math
     best_zone, best_dist = 1, float("inf")
@@ -320,7 +318,10 @@ class StatcastIngestService:
                     hit_distance_sc=_safe_float(row.get("hit_distance_sc")),
                     hc_x=_safe_float(row.get("hc_x")),
                     hc_y=_safe_float(row.get("hc_y")),
-                    fielding_zone=_fielding_zone_from_hc(row.get("hc_x"), row.get("hc_y")),
+                    fielding_zone=_fielding_zone_from_hc(
+                        row.get("hc_x"), row.get("hc_y"),
+                        _safe_int(row.get("game_year")) or int(str(start_date)[:4]),
+                    ),
                     general_result=_general_result(_safe_str(row.get("events"))),
                     specific_result=_specific_result(_safe_str(row.get("events"))),
                     ball_trajectory=_ball_trajectory(_safe_str(row.get("bb_type"))),

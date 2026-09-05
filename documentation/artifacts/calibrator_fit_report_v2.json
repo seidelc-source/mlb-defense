@@ -1,0 +1,50 @@
+{
+  "artifact": "out_calibrator",
+  "version": "v2",
+  "method": "isotonic_per_trajectory",
+  "fit_date": "2026-09-04",
+  "data": {
+    "population": "standard-alignment in-play batted balls, HR excluded",
+    "seasons": [
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "n": 884402,
+    "out_rate": 0.6901194253292054
+  },
+  "oof_gate": {
+    "seasons": [
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "slope": 0.9949420411335704,
+    "intercept": 0.0036298363279353473,
+    "metrics": {
+      "log_loss": 0.5282884902446963,
+      "brier": 0.17707925474147931,
+      "auc": 0.7470346782610762
+    },
+    "slope_bounds": [
+      0.9,
+      1.1
+    ],
+    "pass": true
+  },
+  "artifact_path": "/Users/coryseidel/PersonalProjects/mlb-defense/backend/app/services/alignment/artifacts/out_calibrator_v2.json"
+}

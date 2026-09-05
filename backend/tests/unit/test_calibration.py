@@ -25,10 +25,12 @@ from app.services.alignment.engine import (
     score_custom_positions,
 )
 
-PINNED_VERSION = "v1"
+PINNED_VERSION = "v2"  # v2 = corrected era-aware hc frame (2026-09-04 rebuild)
 # g(coverage) at coverage = [0, 0.25, 0.5, 0.75, 1.0], from the shipped artifact.
-GOLDEN_GROUND = [0.484045, 0.838555, 0.870521, 0.870980, 0.870980]
-GOLDEN_AIR = [0.610722, 0.780660, 0.780660, 0.780660, 0.780660]
+# Note the wider dynamic range vs v1 — decompressing the ball frame spread the
+# coverage→P(out) map (v1 ground topped out at 0.871; v2 reaches 0.945).
+GOLDEN_GROUND = [0.320328, 0.816983, 0.901771, 0.902708, 0.944710]
+GOLDEN_AIR = [0.545792, 0.792086, 0.792086, 0.856103, 0.894386]
 
 
 def _make_spray_zone(zone: int, hit_pct: float = 0.3, hit_count: int = 20, sample_n: int = 50):

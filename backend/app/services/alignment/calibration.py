@@ -27,7 +27,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 ARTIFACT_DIR = Path(__file__).resolve().parent / "artifacts"
-DEFAULT_ARTIFACT = ARTIFACT_DIR / "out_calibrator_v1.json"
+DEFAULT_ARTIFACT = ARTIFACT_DIR / "out_calibrator_v2.json"  # v2 = corrected hc frame
 
 
 @dataclass(frozen=True)

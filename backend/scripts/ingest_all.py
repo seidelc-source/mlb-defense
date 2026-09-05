@@ -24,6 +24,7 @@ async def main(
     skip_statcast: bool = False,
     statcast_only: bool = False,
     fielding_only: bool = False,
+    spray_only: bool = False,
 ) -> None:
     from app.services.ingest.ingest_services import (
         FieldingIngestService,
@@ -39,6 +40,14 @@ async def main(
             profiles = await FieldingIngestService(session).ingest(season)
             await session.commit()
             logger.info("Fielding profiles: %d", profiles)
+        return
+
+    if spray_only:
+        async with AsyncSessionLocal() as session:
+            logger.info("=== Spray aggregation only (season %d) ===", season)
+            sprays = await SprayAggregateService(session).aggregate(season)
+            await session.commit()
+            logger.info("Spray rows: %d", sprays)
         return
 
     if not statcast_only:
@@ -94,8 +103,12 @@ if __name__ == "__main__":
         "--fielding-only", action="store_true",
         help="Only refresh fielding profiles for the season (idempotent upsert)",
     )
+    parser.add_argument(
+        "--spray-only", action="store_true",
+        help="Only rebuild spray aggregates for the season (full delete + re-insert)",
+    )
     args = parser.parse_args()
     asyncio.run(main(
         args.season, args.start, args.end,
-        args.skip_statcast, args.statcast_only, args.fielding_only,
+        args.skip_statcast, args.statcast_only, args.fielding_only, args.spray_only,
     ))

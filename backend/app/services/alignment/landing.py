@@ -14,7 +14,7 @@ density from the batter's actual `hc_x/hc_y` batted-ball locations instead:
 
 Population matches the calibrator fit estimand: in-play hit/out balls, HR
 excluded. The league prior ships as a versioned artifact
-(artifacts/league_landing_v1.json, built by scripts/build_league_landing.py)
+(artifacts/league_landing_v2.json, built by scripts/build_league_landing.py)
 and doubles as the fallback for batters with no batted-ball history — fixing
 the red team's D1 finding (uniform-grid fallback served 0.618).
 """
@@ -36,7 +36,16 @@ settings = get_settings()
 GRID = settings.alignment_grid_size
 
 ARTIFACT_DIR = Path(__file__).resolve().parent / "artifacts"
-LEAGUE_ARTIFACT = ARTIFACT_DIR / "league_landing_v1.json"
+LEAGUE_ARTIFACT = ARTIFACT_DIR / "league_landing_v2.json"
+
+# Canonical hc → field transform constants, fitted against 200k measured hit
+# distances (scripts/calibrate_hc_transform.py, documentation/artifacts/
+# hc_transform_calibration.json, 2026-09-04). MLBAM changed the spray-chart
+# raster around 2021, so the constants are per-era: (ft_per_hc_unit, home_x,
+# home_y). Normalized frame: home plate at (0.5, 0), 1.0 = 400 ft.
+HC_ERA_BREAK = 2021
+HC_PRE2021 = (2.2203, 125.988, 208.386)
+HC_POST2021 = (2.3694, 125.945, 203.279)
 
 # Smoothing bandwidth in grid cells (1 cell ≈ 4 ft) and shrinkage strength in
 # effective ball count. Infrastructure defaults, disclosed in EXPERIMENTS.md —
@@ -47,12 +56,31 @@ SHRINK_K = 200.0
 AIR_TRAJECTORIES = ("flyball", "linedrive", "popup")
 
 
-def hc_to_cell(hc_x: np.ndarray, hc_y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Canonical Statcast hc → engine-grid cell transform. Must stay identical
-    to ingest `_fielding_zone_from_hc` and the eval harness `_hc_to_cell` —
-    one shared frame is what makes the calibrator applicable."""
-    nx = np.clip((np.asarray(hc_x, float) - 25.0) / 200.0, 0.0, 1.0)
-    ny = np.clip(1.0 - np.asarray(hc_y, float) / 200.0, 0.0, 1.0)
+def hc_to_norm(
+    hc_x: np.ndarray, hc_y: np.ndarray, season: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Canonical Statcast hc → normalized field coordinates (era-aware).
+
+    THE one shared ball-frame transform — ingest zone assignment, landing
+    densities, and the calibrator fit path must all import this; a mixed-frame
+    system is worse than a consistently wrong one (EXPERIMENTS.md 2026-09-04).
+    """
+    hc_x = np.asarray(hc_x, dtype=float)
+    hc_y = np.asarray(hc_y, dtype=float)
+    post = np.asarray(season, dtype=float) >= HC_ERA_BREAK
+    s = np.where(post, HC_POST2021[0], HC_PRE2021[0])
+    x0 = np.where(post, HC_POST2021[1], HC_PRE2021[1])
+    y0 = np.where(post, HC_POST2021[2], HC_PRE2021[2])
+    nx = np.clip(0.5 + s * (hc_x - x0) / 400.0, 0.0, 1.0)
+    ny = np.clip(s * (y0 - hc_y) / 400.0, 0.0, 1.0)
+    return nx, ny
+
+
+def hc_to_cell(
+    hc_x: np.ndarray, hc_y: np.ndarray, season: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Canonical hc → engine-grid cell transform (era-aware; see hc_to_norm)."""
+    nx, ny = hc_to_norm(hc_x, hc_y, season)
     col = np.rint(nx * (GRID - 1)).astype(int)
     row = np.rint(ny * (GRID - 1)).astype(int)
     return row, col
@@ -110,7 +138,7 @@ def build_landing_density(
     decay = settings.spray_recency_decay if recency_decay is None else recency_decay
     season = np.asarray(season, dtype=float)
     w = decay ** (season.max() - season)
-    row, col = hc_to_cell(hc_x, hc_y)
+    row, col = hc_to_cell(hc_x, hc_y, season)
     is_air = np.asarray(is_air, dtype=bool)
 
     grids = {}
