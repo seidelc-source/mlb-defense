@@ -37,6 +37,8 @@ No external, outcome-based baseline exists. `predicted_oaa_delta` is defined *re
 
 ## Validation results
 
+**Frame revalidation (2026-09-09) — SUPERSEDES the old-frame numbers below for the served system.** In the corrected coordinate frame: direction validation is **LH +0.35 (stronger) / RH −0.00 (regressed — frame-interaction defect under investigation, top roadmap item)**; the rebuilt zone×trajectory baseline improved to 0.5252 log loss and now **edges the calibrated surface (0.5283)** — the engine's descriptive advantage is a thin AUC margin (+0.007 vs zone×traj; +0.0375 CI-separated vs plain zone). The paragraphs below record old-frame results; they remain valid for the pre-2026-09-04 system only. [VERIFIED — EXPERIMENTS.md 2026-09-09]
+
 **P0 out-model evaluation (2026-09-02)** — first outcome-linked result. On 472,327 standard-alignment in-play batted balls (2021–2025, LOSO), the engine's per-location coverage surface at the standard alignment was scored against realized out/hit. Full numbers in `EXPERIMENTS.md`. Headline: [VERIFIED]
 - **Discrimination**: engine AUC 0.637 vs zone-lookup 0.581 (Δ +0.056, 95% CI [+0.053, +0.058]) — the coverage geometry ranks outs **better** than an 8-zone lookup, stable across all five seasons.
 - **Calibration**: slope 0.369, intercept 0.627, log loss 4.45 vs baseline 0.61 — `coverage` values are **not probabilities**; ~half of balls get P(out)≈0 while ~59% are outs. Severe under-prediction, worst in fielder gaps.

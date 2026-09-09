@@ -87,6 +87,9 @@ def _infield_from_engine(shift_type: str, bats: str | None) -> dict[str, tuple[f
 # ── Data ──────────────────────────────────────────────────────────────────────
 
 async def load_ground_balls() -> pd.DataFrame:
+    # NOTE (2026-09-09 frame revalidation): selects season and uses the
+    # canonical era-aware transform via eval_out_model._hc_to_cell — results
+    # produced before 2026-09-04 used the legacy fixed transform.
     Batter = aliased(Player)
     Pitcher = aliased(Player)
     stmt = (
@@ -98,6 +101,7 @@ async def load_ground_balls() -> pd.DataFrame:
             PitchAppearance.general_result,
             PitchAppearance.hc_x,
             PitchAppearance.hc_y,
+            PitchAppearance.season,
         )
         .join(Batter, Batter.id == PitchAppearance.batter_id, isouter=True)
         .join(Pitcher, Pitcher.id == PitchAppearance.pitcher_id, isouter=True)
@@ -116,7 +120,9 @@ async def load_ground_balls() -> pd.DataFrame:
     df = pd.DataFrame(rows)
     df["y"] = (df["general_result"] == "out").astype(int)
     df["is_shift"] = (df["align"] == "Infield shift").astype(int)
-    row, col = _hc_to_cell(df["hc_x"].to_numpy(float), df["hc_y"].to_numpy(float))
+    row, col = _hc_to_cell(
+        df["hc_x"].to_numpy(float), df["hc_y"].to_numpy(float), df["season"].to_numpy(float)
+    )
     df["row"], df["col"] = row, col
     return df
 

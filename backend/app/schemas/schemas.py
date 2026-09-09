@@ -231,10 +231,12 @@ class AlignmentSummary(BaseModel):
 class AlignmentResponse(BaseModel):
     """Alignment recommendation.
 
-    Probability semantics (see documentation/TRUST_REPORT.md, 2026-09-03):
+    Probability semantics (see documentation/TRUST_REPORT.md, 2026-09-09):
     ``predicted_oaa_delta`` = P(out | this alignment) − P(out | standard) on
-    the calibrated per-ball surface; its DIRECTION is outcome-validated
-    (EXPERIMENTS.md P1 Part 1), its magnitude is approximate. The absolute
+    the calibrated per-ball surface; its DIRECTION is outcome-validated for
+    LEFT-HANDED batters (pearson +0.35, corrected frame); for RIGHT-HANDED
+    batters it is NOT currently validated — a frame-interaction regression is
+    under investigation (EXPERIMENTS.md 2026-09-09). Magnitude is approximate. The absolute
     ``predicted_out_pct``/``predicted_hit_pct`` are calibrated at the
     POPULATION level only (mean bias +0.005 under the empirical landing
     density, ``landing_source="batter"``/"league"): read them as "roughly the
