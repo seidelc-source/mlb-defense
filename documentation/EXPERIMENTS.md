@@ -6,6 +6,33 @@ First outcome-based experiment **run 2026-09-02** — see the P0 entry. Design f
 
 > **Artifact archive**: all `/tmp/*.json` / `/tmp/*.png` result files referenced below were copied to `documentation/artifacts/` (same filenames) on 2026-09-02 and are version-controlled there. The `/tmp` paths in the entries are the as-run commands, kept verbatim for the historical record; future runs should write to `documentation/artifacts/` directly.
 
+## 2026-09-09 — RH direction regression: frame-component ablation (diagnosis) — RUN 2026-09-09 — **CULPRIT: Y-AXIS (depth); x-hypothesis falsified**
+
+- **Status**: RUN same day; six locked variants, once each, per the stopping rule. **Diagnostic only** — no frame change ships (anti-tuning guard held).
+- **Hypothesis**: one identifiable component of the corrected transform breaks the RH (mirrored-template, pull-left) density↔template registration. Leading candidate: **x-axis registration** — the new frame moved the ball-frame center (mirror line for RH templates) from hc 125.0 to the fitted home_x ≈ 125.95–125.99 and stretched x ~14%; an x-center error shifts all densities the same absolute direction, which moves LH and RH densities in OPPOSITE directions *relative to their hand-specific template lobes* — the only candidate that naturally produces the observed hand asymmetry (LH improved, RH collapsed).
+- **Ablation variants (locked; per-hand pearson of fixed-template predicted vs realized lift, same 344-batter harness):**
+  - E1 full-legacy transform (sanity: must reproduce old L +0.22 / R +0.30)
+  - E2 full-corrected (sanity: must reproduce L +0.35 / R −0.00)
+  - A corrected-y + LEGACY-x (`nx=(hc_x−25)/200`)
+  - B legacy-y + corrected-x
+  - C corrected both, SINGLE pooled-era constants (2.2903, 125.950, 206.045) — tests era-split mixing
+  - D corrected both, x0 forced to 125.0 (legacy mirror center, corrected scale) — tests center vs scale within x
+- **Decision tree (pre-registered)**: whichever variant restores RH to ≥ +0.20 while keeping LH ≥ +0.20 names the broken component. **Anti-tuning guard**: the served frame will NOT be changed to whichever variant scores best — that would tune coordinates on the outcome metric. Any frame correction must be derived from **outcome-free geometric evidence** (e.g., foul-line symmetry: fair balls lie within ±45° of the home→CF axis; fit x-center/scale so empirical spray extremes align with the foul lines), then CONFIRMED on the direction metric as a held-out check. If no variant restores RH → the defect is interactive/nonlinear → deeper study; if E1 itself fails to reproduce the old numbers → harness bug, fix first.
+- **Expected (written in advance)**: A and/or D restore RH (x-registration hypothesis); RH under A ≥ +0.20. C and B expected not to.
+- **Stopping rule**: the six locked variants, once each; no additional variants after seeing results.
+- **Result** (per-hand pearson, fixed-template predicted vs realized lift): [VERIFIED — `documentation/artifacts/rh_frame_ablation.json`]
+  | variant | L | R | pooled_w |
+  |---|---|---|---|
+  | E1 legacy (sanity) | +0.284 | +0.340 | +0.138 — reproduces old ✓ |
+  | E2 corrected (sanity) | +0.349 | −0.003 | +0.103 — reproduces regression ✓ |
+  | **A legacy-x + corrected-y** | +0.311 | **−0.044** | corrected-y ALONE kills RH |
+  | **B corrected-x + legacy-y** | **+0.384** | **+0.319** | both hands strong (best pooled +0.147) |
+  | C pooled-era | +0.379 | −0.076 | era mixing not the cause |
+  | D x0=125 | +0.359 | +0.011 | x-center not the cause |
+- **Interpretation**: **The pre-registered x-registration hypothesis is FALSIFIED** — the culprit is the **corrected Y (depth) axis**. Follow-on depth diagnostic (descriptive, in-scope per the decision tree): RH grounder density truly sits at ~90–130 ft (mean 125 — realistic fielded depths; the legacy frame compressed it to ~97), while the RH template |contrast| band (calibrated g(cov_mirror-shift) − g(cov_std)) peaks at **178–206 ft** — the reach-FRINGE region beyond the infield ring, since calibrated coverage saturates at the ring itself. Note the grounder-hc semantics (DATA_KNOWLEDGE): outs are fielded at the ring (~110–150 ft), hits-through are "fielded" by outfielders at 150–250 ft — the contrast keys on the hits corridor. Under legacy-y the compressed density/geometry interplay let RH predictions track reality; under true depths the RH-specific interaction (mirrored shift vs UNMIRRORED asymmetric standard) loses registration while LH gains. Root cause is therefore in the **engine's infield coverage geometry as it meets truly-placed balls** — converging with the reach-model findings (IF reach = noise vs OAA): the engine's infield ground game worked against the old distorted ball cloud partly by accident.
+- **Decision**: (1) Frame unchanged; claims remain LH-only (TRUST_REPORT 2026-09-09). (2) The investigation's next stage is merged with the queued IF reach item into ONE roadmap item: **re-derive the engine's infield coverage geometry against the corrected frame** (template contrast depth structure, reach fringes, out-vs-through grounder semantics; OAA-anchored reach as one input) — pre-register before building; held-out confirmation = RH direction recovery on this harness (which was NOT used to fit anything, preserving it as a check). (3) Variant B is recorded as diagnostic evidence only — legacy-y is measurably wrong geometry and will not be restored.
+- **Reproducibility**: `cd backend && python -m scripts.eval_rh_frame_ablation --out-json ../documentation/artifacts/rh_frame_ablation.json`. Seed 42, B=200. Read-only.
+
 ## 2026-09-09 — Frame revalidation: re-attach prescriptive + baseline claims to the corrected frame — RUN 2026-09-09 — **STOP-AND-INVESTIGATE FIRED (both bars)**
 
 - **Status**: RUN same day; design fields unchanged; results appended. **Both pre-registered STOP conditions fired** — claims downgraded below; investigation queued as the top roadmap item.
