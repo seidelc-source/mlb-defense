@@ -98,9 +98,15 @@ python -m scripts.smoke                                           # end-to-end c
   engine's `pitcher_trajectory_weights` tilts ground-vs-air coverage by the
   pitcher's `groundball_pct` (neutral when absent) — this is the `"pitcher_type"`
   factor. xFIP/SIERA are reserved (NULL, would need a FanGraphs pull)
-- Park geometry: curated 5-point dims in `services/park_data.py`, wall polyline
-  via `GET /stadiums/{id}/layout`, rendered by `components/field/ParkField.tsx`
-  (1.0 norm = 400 ft; walls may slightly exceed 1.0 — SVG viewBox is padded)
+- Park geometry: curated 5-point dims + per-park wall VERTEX profiles
+  (`WALL_PROFILES`/`FEATURE_SPANS` in `services/park_data.py` — straight
+  chords between real corners, e.g. the Green Monster panel and Triples
+  Alley; uncurated parks auto-synthesize panels from their 5 dims). Wall
+  polyline via `GET /stadiums/{id}/layout`, rendered by
+  `components/field/ParkField.tsx` (1.0 norm = 400 ft; walls may slightly
+  exceed 1.0 — SVG viewBox is padded). Profiles are visual approximations
+  (`precision: visual_approximation`) — the engine's legality/clamping still
+  uses the 5-point dims; never feed profile walls into modeling claims
 - Static demo (GitHub Pages): `VITE_DEMO_MODE=true` builds run entirely from
   prebaked fixtures in `frontend/public/demo-data/` via an axios adapter
   (`src/demo/adapter.ts`) — curated matchups + weather presets only; drag

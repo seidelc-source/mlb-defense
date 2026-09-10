@@ -107,14 +107,17 @@ export function ParkField({ layout, svgWidth: W, svgHeight: H }: Props) {
     return bands
   }, [home.x, home.y, H])
 
-  // Feature wall segments: wall polyline points near the feature's anchor angle
+  // Feature wall segments: real angle span from the API when present
+  // (e.g. the full Green Monster panel), anchor ±12° fallback otherwise
   const featureSegments = useMemo(() => {
     return layout.feature_walls
       .filter((fw) => fw.height_ft >= 8) // only visually notable walls
       .map((fw) => {
         const anchor = ANCHOR_ANGLE[fw.key] ?? 0
+        const a0 = fw.angle_start ?? anchor - 12
+        const a1 = fw.angle_end ?? anchor + 12
         const pts = layout.wall_points
-          .filter((p) => Math.abs(p.angle_deg - anchor) <= 12)
+          .filter((p) => p.angle_deg >= a0 && p.angle_deg <= a1)
           .map((p) => n2s(p.x, p.y, W, H))
         const mid = pts[Math.floor(pts.length / 2)]
         return { ...fw, pts, mid }
@@ -148,13 +151,13 @@ export function ParkField({ layout, svgWidth: W, svgHeight: H }: Props) {
       {/* warning track */}
       <path d={trackPath} fill="rgba(165,116,76,0.85)" clipPath="url(#fairClip)" />
 
-      {/* outfield wall line */}
+      {/* outfield wall line — miter joins keep real panel corners crisp */}
       <polyline
         points={wallPx.map((p) => `${p.x},${p.y}`).join(' ')}
         fill="none"
         stroke="#4e5b4e"
         strokeWidth={4}
-        strokeLinejoin="round"
+        strokeLinejoin="miter"
         strokeLinecap="round"
       />
 

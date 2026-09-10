@@ -106,6 +106,60 @@ VENUE_MIGRATIONS: dict[str, str] = {"10": "2529"}
 
 GENERIC_DIMENSIONS = [330, 375, 400, 375, 330]
 
+# ── Curated wall vertex profiles (2026-09-10) ────────────────────────────────
+# Real outfield walls are straight panels meeting at corners, not smooth
+# curves. Each profile is an ordered list of [angle_deg, distance_ft] wall
+# VERTICES (angle from the CF axis; −45 = LF line, +45 = RF line); the layout
+# builder draws straight chords between consecutive vertices. Parks without a
+# profile get an auto-synthesized paneled outline from their five dimensions.
+# Like the dimensions above these are visual approximations from public
+# references (precision stays "visual_approximation"), NOT surveyed geometry.
+WALL_PROFILES: dict[str, list[list[float]]] = {
+    # Fenway: Green Monster panel, center-field triangle, RC bow, Pesky cut
+    "3": [[-45, 310], [-26, 379], [-9, 420], [-4, 388], [8, 380],
+          [20, 370], [32, 380], [42, 305], [45, 302]],
+    # Yankee Stadium: deep LC, short RF porch
+    "3313": [[-45, 318], [-30, 365], [-22, 399], [0, 408], [12, 395],
+             [25, 385], [38, 350], [45, 314]],
+    # Oracle Park: Triples Alley spike, arcade jog to the short RF line
+    "2395": [[-45, 339], [-25, 364], [0, 391], [14, 404], [21, 415],
+             [27, 365], [45, 309]],
+    # Daikin Park: Crawford Boxes panel, deep CF
+    "2392": [[-45, 315], [-22, 362], [-3, 409], [10, 373], [27, 370], [45, 326]],
+    # PNC Park: North Side Notch in LC, Clemente Wall RF
+    "31": [[-45, 325], [-24, 389], [-14, 410], [0, 399], [18, 375],
+           [35, 364], [45, 320]],
+    # Petco Park
+    "2680": [[-45, 336], [-24, 390], [0, 396], [14, 391], [30, 380], [45, 322]],
+    # Coors Field: huge LC/CF expanse
+    "19": [[-45, 347], [-25, 390], [0, 415], [15, 395], [25, 375], [45, 350]],
+    # Wrigley: deep corners, wells
+    "17": [[-45, 355], [-30, 368], [-12, 388], [0, 400], [12, 388],
+           [30, 368], [45, 353]],
+    # Camden Yards: deep LC after the wall move, short RF line
+    "2": [[-45, 333], [-27, 384], [-8, 410], [0, 400], [20, 373],
+          [38, 335], [45, 318]],
+    # Comerica: cavernous CF
+    "2394": [[-45, 345], [-27, 370], [0, 412], [18, 365], [45, 330]],
+    # Citizens Bank Park: "the angle" in LC
+    "2681": [[-45, 329], [-25, 374], [-8, 409], [0, 401], [20, 369], [45, 330]],
+    # Target Field: RF overhang side pulled in
+    "3312": [[-45, 339], [-25, 377], [0, 404], [15, 367], [45, 328]],
+    # Great American: RF sun/moon deck line
+    "2602": [[-45, 328], [-25, 379], [0, 404], [20, 370], [45, 325]],
+    # Nationals Park: LC notch
+    "3309": [[-45, 336], [-24, 377], [-10, 402], [0, 402], [20, 370], [45, 335]],
+}
+
+# Feature-wall angle spans (degrees off CF axis) for height rendering; keys
+# match `wall_heights`. Fallback when absent: ±12° around the anchor angle.
+FEATURE_SPANS: dict[str, dict[str, list[float]]] = {
+    "3": {"left_field": [-45.0, -26.0]},          # Green Monster full panel
+    "2392": {"left_field": [-45.0, -22.0]},       # Crawford Boxes
+    "31": {"right_field": [28.0, 45.0]},          # Clemente Wall
+    "2395": {"right_field": [21.0, 45.0]},        # Oracle arcade
+}
+
 
 def dimension_map(values: list[int | float]) -> dict[str, int]:
     return {key: int(values[i]) for i, key in enumerate(DIMENSION_KEYS)}

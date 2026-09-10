@@ -332,6 +332,9 @@ export interface FeatureWall {
   key: string
   height_ft: number
   label: string
+  // Wall segment span in degrees off the CF axis (−45 = LF line)
+  angle_start?: number | null
+  angle_end?: number | null
 }
 
 export interface StadiumLayout {

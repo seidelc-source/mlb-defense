@@ -391,6 +391,10 @@ class FeatureWall(BaseModel):
     key: str
     height_ft: float
     label: str
+    # Wall segment span in degrees off the CF axis (−45 = LF line);
+    # lets the UI paint the real extent (e.g. the full Green Monster panel)
+    angle_start: float | None = None
+    angle_end: float | None = None
 
 
 class StadiumLayoutResponse(BaseModel):

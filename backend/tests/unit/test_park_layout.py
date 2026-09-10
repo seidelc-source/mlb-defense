@@ -149,7 +149,8 @@ class TestBuildLayout:
         assert len(layout["wall_points"]) >= 17
         assert len(layout["distance_markers"]) == 5
         assert layout["feature_walls"] == [
-            {"key": "left_field", "height_ft": 37.2, "label": "Left Field"}
+            {"key": "left_field", "height_ft": 37.2, "label": "Left Field",
+             "angle_start": -45.0, "angle_end": -33.0}
         ]
         assert layout["features"] == ["Green Monster"]
         assert layout["precision"] == "visual_approximation"
@@ -158,3 +159,74 @@ class TestBuildLayout:
         layout = build_layout(_make_stadium())
         assert layout["feature_walls"] == []
         assert layout["features"] == []
+
+
+# ── Curated wall profiles (2026-09-10 realism upgrade) ───────────────────────
+
+from app.services.park_data import FEATURE_SPANS, WALL_PROFILES  # noqa: E402
+from app.services.park_layout import (  # noqa: E402
+    build_wall_points_from_profile,
+    synthesize_profile,
+)
+
+
+class TestWallProfiles:
+    def test_profiles_are_ordered_and_plausible(self):
+        for venue_id, profile in WALL_PROFILES.items():
+            angles = [a for a, _ in profile]
+            assert angles == sorted(angles), venue_id
+            assert angles[0] == -45.0 and angles[-1] == 45.0, venue_id
+            for _, dist in profile:
+                assert 290 <= dist <= 430, f"{venue_id}: implausible {dist}"
+
+    def test_feature_spans_reference_profiled_parks_and_heights(self):
+        for venue_id, spans in FEATURE_SPANS.items():
+            assert venue_id in WALL_PROFILES
+            heights = PARKS_BY_VENUE_ID[venue_id].get("wall_heights", {})
+            for key, (a0, a1) in spans.items():
+                assert key in heights, f"{venue_id}:{key} span without height"
+                assert -45.0 <= a0 < a1 <= 45.0
+
+    def test_profile_points_hit_every_vertex(self):
+        profile = WALL_PROFILES["2395"]  # Oracle: 415 Triples Alley
+        points = build_wall_points_from_profile(profile)
+        dists = [p["distance_ft"] for p in points]
+        for _, d in profile:
+            assert any(abs(x - d) < 0.6 for x in dists), f"vertex {d} missing"
+
+    def test_chords_are_straight_in_cartesian(self):
+        # Sampled points between two vertices must be collinear (a chord),
+        # not bowed outward like the legacy smooth interpolation.
+        profile = [[-45.0, 330.0], [0.0, 400.0], [45.0, 330.0]]
+        points = build_wall_points_from_profile(profile, samples=24)
+        seg = [p for p in points if -45.0 < p["angle_deg"] < 0.0]
+        (x0, y0) = (points[0]["x"], points[0]["y"])
+        apex = next(p for p in points if p["angle_deg"] == 0.0)
+        for p in seg:
+            cross = (apex["x"] - x0) * (p["y"] - y0) - (apex["y"] - y0) * (p["x"] - x0)
+            assert abs(cross) < 1e-3, "chord point off the straight segment"
+
+    def test_synthesized_profile_matches_anchor_dims(self):
+        profile = synthesize_profile(GENERIC)
+        by_angle = {a: d for a, d in profile}
+        for angle, key in zip(ANCHOR_ANGLES_DEG, DIMENSION_KEYS):
+            assert by_angle[angle] == pytest.approx(GENERIC[key], abs=0.1)
+
+    def test_layout_uses_profile_and_extra_markers_for_oracle(self):
+        stadium = _make_stadium(
+            mlb_venue_id="2395",
+            left_line_ft=339, left_center_ft=364, center_ft=391,
+            right_center_ft=415, right_line_ft=309,
+            wall_heights={"right_field": 24.0},
+        )
+        layout = build_layout(stadium)
+        dists = [p["distance_ft"] for p in layout["wall_points"]]
+        assert any(abs(d - 415) < 0.6 for d in dists)  # Triples Alley vertex
+        fw = layout["feature_walls"][0]
+        assert fw["angle_start"] == 21.0 and fw["angle_end"] == 45.0
+
+    def test_layout_without_profile_synthesizes_panels(self):
+        stadium = _make_stadium(mlb_venue_id=None)
+        layout = build_layout(stadium)
+        assert layout["wall_points"][0]["angle_deg"] == -45.0
+        assert layout["wall_points"][-1]["angle_deg"] == 45.0
