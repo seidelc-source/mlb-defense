@@ -39,7 +39,7 @@ export function AlignmentResults({ alignment, isLoading, error }: Props) {
       <div className="grid grid-cols-3 gap-2">
         <div
           className="score-cell"
-          title="Predicted outs added vs the standard alignment — direction outcome-validated for LH batters; RH under re-review"
+          title="Predicted outs added vs the standard alignment — direction outcome-validated for both hands; magnitude approximate"
         >
           <strong style={{ color: alignment.predicted_oaa_delta >= 0 ? 'var(--ok)' : 'var(--danger)' }}>
             {formatSigned(alignment.predicted_oaa_delta, 2)}
@@ -73,9 +73,9 @@ export function AlignmentResults({ alignment, isLoading, error }: Props) {
       </div>
 
       <p className="text-[11px] leading-snug" style={{ color: 'var(--muted)' }}>
-        OAA Δ direction is outcome-validated for left-handed batters; right-handed validation
-        is under re-review after a coordinate-frame correction. The shift label is a heuristic
-        template. Out/hit % are league-calibrated averages, not batter-specific.
+        OAA Δ direction is outcome-validated for both hands (magnitude approximate). The shift
+        label is a heuristic template. Out/hit % are league-calibrated averages, not
+        batter-specific.
       </p>
 
       {alignment.pitcher_type && (

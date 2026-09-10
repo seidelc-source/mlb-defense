@@ -68,8 +68,13 @@ def _model_version(calibrator) -> str:
     """Persisted model identifier: engine version + calibrator version, so
     logged predictions are attributable to the exact probability map.
     0.3.0 = empirical landing density serving path (2026-09-03);
-    0.4.0 = corrected era-aware hc frame + v2 artifacts (2026-09-04)."""
-    return f"0.4.0+cal-{calibrator.version}" if calibrator else "0.4.0-raw"
+    0.4.0 = corrected era-aware hc frame + v2 artifacts (2026-09-04);
+    0.5.0 = angular-corridor ground model (2026-09-10)."""
+    from app.services.alignment.angular import get_angular_ground
+
+    ang = get_angular_ground()
+    ang_tag = f"+{ang.version}" if ang else ""
+    return (f"0.5.0+cal-{calibrator.version}{ang_tag}" if calibrator else f"0.5.0-raw{ang_tag}")
 
 
 LANDING_CACHE_TTL = 86_400  # rebuilt daily — landing histograms move slowly
@@ -165,24 +170,33 @@ class AlignmentService:
         pitcher_throws = rows.get(pitcher_id, (None, None))[1]
         return resolve_batter_hand(bats, pitcher_throws)
 
-    async def _landing_density(self, batter_id: uuid.UUID | None) -> LandingDensity | None:
-        """Empirical landing density for the batter (Redis-cached, daily TTL);
-        league prior when the batter has no batted-ball history (fixes the
-        uniform-fallback bias, red-team D1); None when the league artifact is
-        missing too (engine then uses the legacy spray-model path)."""
+    async def _landing_density(
+        self, batter_id: uuid.UUID | None
+    ) -> tuple[LandingDensity | None, LandingDensity | None]:
+        """(level_density, delta_density) for the batter (Redis-cached, daily
+        TTL). LEVEL density is league-shrunk (regularizes absolute P(out) —
+        red-team D1 fix). DELTA density is the batter's own smoothed, UNSHRUNK
+        histogram: shrinkage injects sample-size variance into cross-batter
+        delta rankings (EXPERIMENTS.md 2026-09-10 G3 amendment). Both fall
+        back to the league prior when the batter has no history; (None, None)
+        when the league artifact is missing too (legacy spray-model path)."""
         league = get_league_landing()
         if batter_id is None:
-            return league
-        key = f"landing:{batter_id}:v2"  # v2 = corrected era-aware hc frame
+            return league, league
+
+        def _unpack(d: dict) -> LandingDensity:
+            return LandingDensity(
+                ground=np.asarray(d["ground"], dtype=np.float32),
+                air=np.asarray(d["air"], dtype=np.float32),
+                ground_share=float(d["ground_share"]),
+                source=d["source"],
+                n=int(d["n"]),
+            )
+
+        key = f"landing:{batter_id}:v3"  # v3 = level + unshrunk-delta variants
         cached = await cache_get(key)
         if cached:
-            return LandingDensity(
-                ground=np.asarray(cached["ground"], dtype=np.float32),
-                air=np.asarray(cached["air"], dtype=np.float32),
-                ground_share=float(cached["ground_share"]),
-                source=cached["source"],
-                n=int(cached["n"]),
-            )
+            return _unpack(cached["level"]), _unpack(cached["delta"])
         from sqlalchemy import select
         from app.models.pitch_appearance import PitchAppearance
         stmt = select(
@@ -199,22 +213,27 @@ class AlignmentService:
             PitchAppearance.ball_trajectory.is_not(None),
         )
         rows = (await self.session.execute(stmt)).all()
-        density = build_landing_density(
+        args = dict(
             hc_x=np.array([r[0] for r in rows], dtype=float),
             hc_y=np.array([r[1] for r in rows], dtype=float),
             is_air=np.array([r[2] in AIR_TRAJECTORIES for r in rows], dtype=bool),
             season=np.array([r[3] for r in rows], dtype=float),
-            league=league,
         )
-        if density is not None and density.source == "batter":
-            await cache_set(key, {
-                "ground": np.round(density.ground, 6).tolist(),
-                "air": np.round(density.air, 6).tolist(),
-                "ground_share": density.ground_share,
-                "source": density.source,
-                "n": density.n,
-            }, LANDING_CACHE_TTL)
-        return density
+        level = build_landing_density(**args, league=league)
+        delta = build_landing_density(**args, league=None, shrink_k=0.0) or league
+
+        def _pack(d: LandingDensity) -> dict:
+            return {
+                "ground": np.round(d.ground, 6).tolist(),
+                "air": np.round(d.air, 6).tolist(),
+                "ground_share": d.ground_share,
+                "source": d.source,
+                "n": d.n,
+            }
+
+        if level is not None and level.source == "batter" and delta is not None:
+            await cache_set(key, {"level": _pack(level), "delta": _pack(delta)}, LANDING_CACHE_TTL)
+        return level, delta
 
     async def recommend(self, req: AlignmentRequest) -> AlignmentResponse:
         calibrator = get_calibrator()
@@ -265,7 +284,9 @@ class AlignmentService:
         # ── 4. Engine ─────────────────────────────────────────────────────────
         dimensions, altitude = await self._park_context(req.stadium_id)
         bats = await self._batter_hand(req.batter_id, req.pitcher_id)
-        landing = await self._landing_density(req.batter_id) if calibrator else None
+        landing, landing_delta = (
+            await self._landing_density(req.batter_id) if calibrator else (None, None)
+        )
         candidates = compute_alignment(
             spray_zones=spray_zones,
             fielder_profiles=adjusted_profiles,
@@ -279,6 +300,7 @@ class AlignmentService:
             bats=bats,
             calibrator=calibrator,
             landing=landing,
+            landing_delta=landing_delta,
         )
 
         if not candidates:
@@ -374,7 +396,9 @@ class AlignmentService:
         dimensions, altitude = await self._park_context(req.stadium_id)
         bats = await self._batter_hand(req.batter_id, getattr(req, "pitcher_id", None))
         calibrator = get_calibrator()
-        landing = await self._landing_density(req.batter_id) if calibrator else None
+        landing, landing_delta = (
+            await self._landing_density(req.batter_id) if calibrator else (None, None)
+        )
         candidate = score_custom_positions(
             custom_positions=positions,
             spray_zones=spray_zones,
@@ -387,6 +411,7 @@ class AlignmentService:
             bats=bats,
             calibrator=calibrator,
             landing=landing,
+            landing_delta=landing_delta,
         )
 
         illegal = [

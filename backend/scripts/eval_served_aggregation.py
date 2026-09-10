@@ -118,8 +118,10 @@ def _standard_g_grids(cal: OutCalibrator):
         for pos, (cx, cy) in E.STANDARD_POSITIONS.items()
         if pos not in ("C", "P")
     ]
-    cov_g, cov_a = E._coverage_by_trajectory(reaches)
-    return cal.apply(cov_g, "ground"), cal.apply(cov_a, "air")
+    # Ground grid via the served path (angular model when the artifact exists —
+    # 2026-09-10 shipping experiment); air via reach circles + calibrator.
+    _, cov_a = E._coverage_by_trajectory(reaches)
+    return E.ground_out_grid(reaches, cal), cal.apply(cov_a, "air")
 
 
 def served_p_out_per_batter(spray_by_player: dict, cal: OutCalibrator) -> dict:

@@ -1,0 +1,50 @@
+{
+  "artifact": "angular_ground",
+  "version": "ang-v1",
+  "fit_date": "2026-09-10",
+  "data": {
+    "population": "standard-alignment hit/out grounders, corrected frame, ny>=0.05",
+    "seasons": [
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "n": 334313,
+    "out_rate": 0.7420770355923939
+  },
+  "loso_gate": {
+    "slope": 0.9327274706268458,
+    "intercept": 0.050319672029621704,
+    "bounds": [
+      0.9,
+      1.1
+    ],
+    "pass": true
+  },
+  "stations": {
+    "1B": [
+      0.62,
+      0.28
+    ],
+    "2B": [
+      0.58,
+      0.38
+    ],
+    "SS": [
+      0.42,
+      0.38
+    ],
+    "3B": [
+      0.38,
+      0.28
+    ]
+  },
+  "artifact_path": "/Users/coryseidel/PersonalProjects/mlb-defense/backend/app/services/alignment/artifacts/angular_ground_v1.json"
+}

@@ -531,6 +531,30 @@ def batter_ground_share(
     return _tilt_share(share, ground_weight, air_weight)
 
 
+def ground_out_grid(reaches: list["FielderReach"], calibrator: Any) -> np.ndarray:
+    """Served per-cell P(out | ground ball) grid for an alignment.
+
+    Angular-corridor model over the alignment's infielder stations when the
+    versioned artifact is available (ang-v1 — bearing-only, league-level
+    stations; direction-validated for BOTH hands, EXPERIMENTS.md 2026-09-10;
+    grounder depth is outcome-contaminated so reach circles are wrong geometry
+    for the ground game). Falls back to the legacy reach-circle coverage →
+    calibrator branch when the artifact is missing."""
+    from app.services.alignment.angular import INFIELD as ANG_INFIELD
+    from app.services.alignment.angular import get_angular_ground
+
+    ang = get_angular_ground()
+    if ang is not None:
+        stations = np.array(
+            [np.arctan2(r.center_x - 0.5, max(r.center_y, 1e-9))
+             for r in reaches if r.position in ANG_INFIELD]
+        )
+        if len(stations):
+            return ang.ground_out_grid(stations)
+    cov_ground, _ = _coverage_by_trajectory(reaches)
+    return calibrator.apply(cov_ground, "ground")
+
+
 def calibrated_out_probability(
     ground_landing_grid: np.ndarray,
     air_landing_grid: np.ndarray,
@@ -552,8 +576,8 @@ def calibrated_out_probability(
     is an approximate index. The principled fix — an empirical per-batter
     landing density — is roadmap P1.
     """
-    cov_ground, cov_air = _coverage_by_trajectory(reaches)
-    p_ground = float((ground_landing_grid * calibrator.apply(cov_ground, "ground")).sum())
+    _, cov_air = _coverage_by_trajectory(reaches)
+    p_ground = float((ground_landing_grid * ground_out_grid(reaches, calibrator)).sum())
     p_air = float((air_landing_grid * calibrator.apply(cov_air, "air")).sum())
     return ground_share * p_ground + (1.0 - ground_share) * p_air
 
@@ -738,6 +762,7 @@ def compute_alignment(
     bats: str | None = None,
     calibrator: Any | None = None,
     landing: Any | None = None,
+    landing_delta: Any | None = None,
 ) -> list[AlignmentCandidate]:
     """
     Core engine: evaluate standard + shift variants + locally-optimized
@@ -765,6 +790,8 @@ def compute_alignment(
 
     ground_land = air_land = None
     ground_share = 0.0
+    ground_land_d = air_land_d = None
+    ground_share_d = 0.0
     if calibrator is not None:
         if landing is not None:
             # Empirical landing density (LandingDensity — batter histogram or
@@ -772,6 +799,13 @@ def compute_alignment(
             ground_land = apply_weather_to_landing(landing.ground, weather, "ground", altitude_ft)
             air_land = apply_weather_to_landing(landing.air, weather, "air", altitude_ft)
             ground_share = _tilt_share(landing.ground_share, ground_weight, air_weight)
+            # DELTA density: the batter's own smoothed, UNSHRUNK histogram —
+            # league shrinkage injects sample-size variance into cross-batter
+            # delta rankings (EXPERIMENTS.md 2026-09-10 G3 amendment).
+            ld = landing_delta or landing
+            ground_land_d = apply_weather_to_landing(ld.ground, weather, "ground", altitude_ft)
+            air_land_d = apply_weather_to_landing(ld.air, weather, "air", altitude_ft)
+            ground_share_d = _tilt_share(ld.ground_share, ground_weight, air_weight)
         else:
             # Legacy spray-model landing density (known biased — see
             # documentation/EXPERIMENTS.md 2026-09-03; kept as the no-artifact
@@ -781,6 +815,7 @@ def compute_alignment(
             air_land = build_hit_probability_grid(
                 spray_zones, weather, trajectory="air", altitude_ft=altitude_ft, density="landing")
             ground_share = batter_ground_share(spray_zones, ground_weight, air_weight)
+            ground_land_d, air_land_d, ground_share_d = ground_land, air_land, ground_share
 
     def park_clamped(positions: dict[str, tuple[float, float]]) -> dict[str, tuple[float, float]]:
         if dimensions is None:
@@ -797,18 +832,23 @@ def compute_alignment(
         ground_grid, air_grid, list(std_reaches.values()), optimize_for,
         ground_weight, air_weight,
     )
-    std_p_out = (
-        calibrated_out_probability(
+    std_p_out = std_p_out_d = None
+    if calibrator is not None:
+        std_p_out = calibrated_out_probability(
             ground_land, air_land, list(std_reaches.values()), calibrator, ground_share)
-        if calibrator is not None else None
-    )
+        std_p_out_d = calibrated_out_probability(
+            ground_land_d, air_land_d, list(std_reaches.values()), calibrator, ground_share_d)
 
     def evaluate(name: str, positions: dict[str, tuple[float, float]]) -> AlignmentCandidate:
         reaches = _build_reaches(positions, fielder_profiles, roster)
         if calibrator is not None:
             p_out = calibrated_out_probability(
                 ground_land, air_land, list(reaches.values()), calibrator, ground_share)
-            oaa_delta = round(p_out - std_p_out, 4)
+            # Delta under the batter's own (unshrunk) density — the ranking-
+            # validated decision quantity; level fields keep the shrunk density.
+            p_out_d = calibrated_out_probability(
+                ground_land_d, air_land_d, list(reaches.values()), calibrator, ground_share_d)
+            oaa_delta = round(p_out_d - std_p_out_d, 4)
             hit_pct = round(1.0 - p_out, 4)
         else:
             outs = _expected_outs(
@@ -867,6 +907,7 @@ def score_custom_positions(
     bats: str | None = None,
     calibrator: Any | None = None,
     landing: Any | None = None,
+    landing_delta: Any | None = None,
 ) -> AlignmentCandidate:
     """
     Score an exact user-supplied arrangement (e.g. from dragging fielders)
@@ -889,17 +930,25 @@ def score_custom_positions(
             ground_land = apply_weather_to_landing(landing.ground, weather, "ground", altitude_ft)
             air_land = apply_weather_to_landing(landing.air, weather, "air", altitude_ft)
             ground_share = _tilt_share(landing.ground_share, ground_weight, air_weight)
+            ld = landing_delta or landing
+            ground_land_d = apply_weather_to_landing(ld.ground, weather, "ground", altitude_ft)
+            air_land_d = apply_weather_to_landing(ld.air, weather, "air", altitude_ft)
+            ground_share_d = _tilt_share(ld.ground_share, ground_weight, air_weight)
         else:
             ground_land = build_hit_probability_grid(
                 spray_zones, weather, trajectory="ground", altitude_ft=altitude_ft, density="landing")
             air_land = build_hit_probability_grid(
                 spray_zones, weather, trajectory="air", altitude_ft=altitude_ft, density="landing")
             ground_share = batter_ground_share(spray_zones, ground_weight, air_weight)
-        std_p_out = calibrated_out_probability(
-            ground_land, air_land, list(std_reaches.values()), calibrator, ground_share)
+            ground_land_d, air_land_d, ground_share_d = ground_land, air_land, ground_share
         p_out = calibrated_out_probability(
             ground_land, air_land, list(reaches.values()), calibrator, ground_share)
-        oaa_delta = round(p_out - std_p_out, 4)
+        # Delta under the batter's own (unshrunk) density — see compute_alignment
+        std_p_out_d = calibrated_out_probability(
+            ground_land_d, air_land_d, list(std_reaches.values()), calibrator, ground_share_d)
+        p_out_d = calibrated_out_probability(
+            ground_land_d, air_land_d, list(reaches.values()), calibrator, ground_share_d)
+        oaa_delta = round(p_out_d - std_p_out_d, 4)
         hit_pct = round(1.0 - p_out, 4)
     else:
         std_outs = _expected_outs(

@@ -1,0 +1,23 @@
+{
+ "pre_registration": "EXPERIMENTS.md 2026-09-10 shipping gates",
+ "bar": 0.2,
+ "per_hand": {
+  "L": {
+   "n": 150,
+   "pearson": 0.3444901027158636,
+   "pred_std": 0.004079112146645079
+  },
+  "R": {
+   "n": 142,
+   "pearson": 0.2246273739253308,
+   "pred_std": 0.003906336105186611
+  },
+  "S": {
+   "n": 52,
+   "pearson": -0.14563117525038477,
+   "pred_std": 0.00404693883799496
+  }
+ },
+ "g3_pass": true,
+ "n_batters": 344
+}

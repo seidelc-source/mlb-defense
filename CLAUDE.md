@@ -66,13 +66,17 @@ python -m scripts.smoke                                           # end-to-end c
   densities, and the calibrator fit path all import it — never add a second
   copy of the transform; if it changes, the whole frame (zones, sprays,
   landing, calibrator) must be rebuilt together (EXPERIMENTS.md 2026-09-04)
-- Out-probability calibration: served numbers go through the versioned
-  per-trajectory isotonic artifact (`services/alignment/artifacts/
-  out_calibrator_v2.json`, loaded by `services/alignment/calibration.py`; refit
-  with `scripts/fit_calibrator.py`, which enforces a reliability gate). The
-  expectation runs over the batter's EMPIRICAL landing density
-  (`services/alignment/landing.py` + `league_landing_v2.json`; rebuild with
-  `scripts/build_league_landing.py`). Claim discipline: `predicted_oaa_delta`
+- Out-probability calibration: the GROUND game runs on the angular-corridor
+  model (`services/alignment/angular.py` + `angular_ground_v1.json`; refit
+  with `scripts/fit_angular_ground.py`, LOSO-gated) — bearing-only, league
+  stations; grounder depth is outcome-contaminated so never use reach circles
+  or fielded-depth for ground scoring. AIR uses the per-trajectory isotonic
+  artifact (`out_calibrator_v2.json`, `services/alignment/calibration.py`;
+  refit with `scripts/fit_calibrator.py`, reliability-gated). The expectation
+  runs over the batter's EMPIRICAL landing density (`landing.py` +
+  `league_landing_v2.json`); LEVELS use the league-shrunk density, DELTAS the
+  batter's own unshrunk one (never shrink deltas — sample-size contamination,
+  EXPERIMENTS 2026-09-10). Claim discipline: `predicted_oaa_delta`
   is direction-validated; absolute `predicted_hit_pct`/`out_pct` are
   population-level calibrated only (never rank batters by them — TRUST_REPORT
   2026-09-03). Raw engine `coverage` is internal-only. Responses carry
@@ -143,4 +147,4 @@ Rules:
 - **Prediction horizon / prediction-time constraints**: Live pre-pitch decision using the latest fielding profiles + recency-weighted all-season spray blend. Any retrospective backtest must control point-in-time (latest profiles and season-aggregate spray include future/outcome info). [INFERRED]
 - **Primary metric & success criterion**: Descriptive — log loss / Brier / AUC vs zone-lookup baselines (LOSO by season); calibrated surface beats both baselines with CI separation. Prescriptive — realized out-rate lift vs standard alignment (within-batter policy-value estimator). [VERIFIED — see `documentation/EXPERIMENTS.md`]
 - **Communication preference**: plain-first — lead with a plain-language bottom line; technical detail follows. [user, 2026-09-02]
-- **Current trust status**: CONDITIONALLY TRUSTED for the calibrated P(out | standard-alignment) level/reliability. Positioning direction (2026-09-09 frame revalidation): **validated for LH batters (+0.35); NOT validated for RH** — a frame-interaction regression is under investigation (top roadmap item; no further modeling until diagnosed). Descriptive edge: beats a plain zone lookup on ranking (CI-separated) but no longer beats zone×trajectory with separation. Shift-*selection* CLOSED (policy: shift broadly). Fine x,y placement UNKNOWN (data gap). See `documentation/TRUST_REPORT.md`.
+- **Current trust status**: CONDITIONALLY TRUSTED. `oaa_delta` direction/ranking validated for BOTH hands through the served path (L +0.34 / R +0.23 — angular ground model, 2026-09-10); magnitude approximate; switch-hitters unvalidated (harness limitation). Absolute probabilities population-level only (permanent cap; level bias +0.001). Shift-*selection* CLOSED (policy: shift broadly). Fine x,y placement UNKNOWN (data gap). Descriptive grounder comparisons are cell-contaminated for all models (DATA_KNOWLEDGE 2026-09-09). See `documentation/TRUST_REPORT.md`.
