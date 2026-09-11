@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Workers
     worker_enabled: bool = True
 
+    # Public exposure (e.g. Cloudflare tunnel): block mutation endpoints
+    # (ingest triggers, injury edits) so visitors can only read + compute
+    public_mode: bool = False
+
     # Alignment engine
     alignment_min_spray_sample: int = 30   # min pitches to trust a spray profile
     alignment_grid_size: int = 100         # coverage map resolution (100×100)

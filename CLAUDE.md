@@ -13,6 +13,10 @@ See `backend/app/app_structure.md` and `backend/app/data_models.md` for full des
 # One command (Homebrew-based Postgres/Redis, no Docker):
 python start.py
 
+# Share the FULL live app via a free Cloudflare quick tunnel (single-origin
+# build served by FastAPI; PUBLIC_MODE=1 locks ingest/injury mutations):
+./serve_public.sh
+
 # Or manually — see STARTUP.md for the full guide.
 ```
 

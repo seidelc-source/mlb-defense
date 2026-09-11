@@ -139,6 +139,25 @@ docker compose up --build
 
 ---
 
+## Sharing the live app publicly (free, no hosting)
+
+With data stores running and the backend venv set up, one command serves the
+FULL app (live engine, all 30 parks) behind a free Cloudflare quick tunnel:
+
+```bash
+brew install cloudflared   # one-time
+./serve_public.sh
+```
+
+It builds the frontend for single-origin serving (`VITE_API_BASE_URL=/api/v1`,
+served by FastAPI itself — no CORS, one port), starts the backend with
+`PUBLIC_MODE=1` (ingest triggers and injury edits return 403 for visitors),
+and prints a shareable `https://…trycloudflare.com` URL. The URL is random
+per run and lives until you Ctrl-C; your machine must stay awake. For an
+always-on deployment use a paid host instead (Railway / Fly / VPS).
+
+---
+
 ## Stopping everything
 
 ```bash
